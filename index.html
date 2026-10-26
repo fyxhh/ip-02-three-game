@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>小熊快跑 · 四季滚动天空 3D</title>
+<html lang="zh-CN" data-page-node-id="GMXl09GDAWMm4WlDeOf0TD">
+<head data-page-node-id="HqOkyAnCRlHcX1txpEuPE7">
+<meta charset="UTF-8" data-page-node-id="NBecgMAakrFiIiweHiJa35" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" data-page-node-id="QmevPEKiwfygoES7okRCxv" />
+<title>滚动天空 · 蓝色小球 3D</title>
 <style>
   /* ============================================================
      页面样式：全屏画布 + 可爱风 HUD / 弹窗
@@ -14,7 +14,7 @@
     background: #cdeeff;
     font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, sans-serif;
     -webkit-user-select: none; user-select: none;
-    cursor: none;
+    cursor: none;                       /* 游戏中隐藏系统指针，用小球当准星 */
   }
   body.show-cursor, body.show-cursor * { cursor: default; }
   canvas { display: block; }
@@ -35,7 +35,9 @@
     display: flex; align-items: center; gap: 12px;
     width: fit-content;
   }
-  .label { font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #7ba7c4; }
+  .label {
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #7ba7c4;
+  }
   #scoreValue {
     font-size: 28px; font-weight: 900; color: #ff8a3d; line-height: 1;
     font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 #ffe0c2;
@@ -58,54 +60,7 @@
     transition: width .2s linear;
   }
 
-  /* ---------- 右上角：季节指示 ---------- */
-  #seasonTag {
-    position: fixed; top: 18px; right: 18px; z-index: 20;
-    pointer-events: none;
-    display: flex; align-items: center; gap: 8px;
-    font-size: 15px; font-weight: 800; letter-spacing: 2px; color: #4a7c96;
-  }
-  #seasonIcon { font-size: 20px; }
-
-  /* ---------- 左下角：闪电加速按钮 ---------- */
-  #boltBtn {
-    position: fixed; left: 18px; bottom: 22px; z-index: 21;
-    display: flex; align-items: center; gap: 10px;
-    font-family: inherit; font-size: 16px; font-weight: 800; letter-spacing: 2px;
-    color: #8a6b00; background: rgba(255, 255, 255, .9);
-    border: 3px solid #ffe08a; border-radius: 999px; padding: 10px 22px;
-    box-shadow: 0 8px 20px rgba(180, 150, 60, .25);
-    opacity: .45; transform: scale(.94);
-    transition: all .18s ease; pointer-events: none;
-  }
-  #boltBtn.ready {
-    opacity: 1; transform: scale(1);
-    color: #fff; background: linear-gradient(#ffd94a, #ffab2e);
-    border-color: #fff3c4; cursor: pointer; pointer-events: auto;
-    animation: boltPulse 1.1s ease-in-out infinite;
-  }
-  @keyframes boltPulse {
-    0%,100% { box-shadow: 0 8px 20px rgba(255,190,60,.35); }
-    50%     { box-shadow: 0 8px 28px rgba(255,190,60,.75); }
-  }
-  #boltBtn:active { transform: scale(.94); }
-  #boltCount { font-size: 22px; font-variant-numeric: tabular-nums; }
-  #boltHint { font-size: 12px; font-weight: 600; opacity: .8; letter-spacing: 1px; }
-
-  /* ---------- 加速剩余时间条 ---------- */
-  #boostWrap {
-    position: fixed; left: 18px; bottom: 74px; z-index: 21;
-    width: 168px; height: 12px; border-radius: 12px; overflow: hidden;
-    background: rgba(255,255,255,.75); border: 2px solid #ffe08a;
-    display: none; pointer-events: none;
-  }
-  #boostWrap.on { display: block; }
-  #boostBar {
-    height: 100%; width: 100%; border-radius: 12px;
-    background: linear-gradient(90deg, #fff27a, #ffb02e);
-  }
-
-  /* ---------- 中央弹窗 ---------- */
+  /* ---------- 中央弹窗（开始 / 结算共用） ---------- */
   #overlay {
     position: fixed; inset: 0; z-index: 30;
     display: flex; align-items: center; justify-content: center;
@@ -118,16 +73,17 @@
 
   .card {
     background: #ffffff; border: 5px solid #ffffff; border-radius: 30px;
-    padding: 30px 44px 34px; text-align: center; max-width: 92vw; max-height: 92vh; overflow: auto;
+    padding: 32px 46px 36px; text-align: center; max-width: 92vw; max-height: 92vh; overflow: auto;
     box-shadow: 0 22px 60px rgba(86, 146, 186, .35), inset 0 -6px 0 #eaf6ff;
     animation: pop .34s cubic-bezier(.2, 1.5, .5, 1);
   }
   @keyframes pop { from { transform: scale(.84) translateY(14px); opacity: 0 } to { transform: none; opacity: 1 } }
 
-  .card h1 { font-size: 32px; color: #2b7fb8; letter-spacing: 3px; margin-bottom: 6px; text-shadow: 0 3px 0 #dff1fb; }
+  .card h1 { font-size: 34px; color: #2b7fb8; letter-spacing: 3px; margin-bottom: 6px; text-shadow: 0 3px 0 #dff1fb; }
   .card h2 { font-size: 27px; color: #ff7a4d; letter-spacing: 4px; margin-bottom: 4px; }
-  .subtitle { font-size: 14px; color: #93b5cc; letter-spacing: 1px; margin-bottom: 16px; }
-  .sectionTitle { font-size: 13px; font-weight: 800; color: #2b7fb8; letter-spacing: 2px; margin: 12px 0 6px; text-align: left; }
+  .subtitle { font-size: 14px; color: #93b5cc; letter-spacing: 1px; margin-bottom: 18px; }
+
+  .sectionTitle { font-size: 13px; font-weight: 800; color: #2b7fb8; letter-spacing: 2px; margin: 14px 0 6px; text-align: left; }
   .tips { text-align: left; display: inline-block; font-size: 14px; color: #6f96b1; line-height: 2.0; }
   .tips b { color: #2b7fb8; }
   .key {
@@ -135,14 +91,15 @@
     background: #eef7fd; border: 2px solid #cfe8f7; border-radius: 7px;
     font-size: 12px; font-weight: 700; color: #3d90c7; text-align: center;
   }
+
   .finalScore {
-    font-size: 66px; font-weight: 900; color: #ff8a3d; line-height: 1.1;
+    font-size: 68px; font-weight: 900; color: #ff8a3d; line-height: 1.1;
     font-variant-numeric: tabular-nums; text-shadow: 0 4px 0 #ffe6d2;
   }
   .best { font-size: 14px; color: #93b5cc; margin-top: 6px; }
 
   button.btn {
-    margin-top: 22px; font-family: inherit; font-size: 19px; font-weight: 800; letter-spacing: 4px;
+    margin-top: 24px; font-family: inherit; font-size: 19px; font-weight: 800; letter-spacing: 4px;
     color: #fff; background: linear-gradient(#5fc0f5, #2f9ae0);
     border: none; border-radius: 999px; padding: 15px 52px;
     cursor: pointer; box-shadow: 0 7px 0 #1f7cb8, 0 12px 22px rgba(47, 154, 224, .35);
@@ -151,6 +108,7 @@
   button.btn:hover { transform: translateY(-2px); box-shadow: 0 9px 0 #1f7cb8, 0 16px 26px rgba(47, 154, 224, .4); }
   button.btn:active { transform: translateY(5px); box-shadow: 0 2px 0 #1f7cb8, 0 6px 12px rgba(47, 154, 224, .3); }
 
+  /* ---------- 难度选择（开始 / 结算卡片） ---------- */
   .diffRow { display: flex; gap: 10px; justify-content: center; }
   .diffBtn {
     flex: 1; max-width: 108px; font-family: inherit; font-size: 15px; font-weight: 800;
@@ -172,14 +130,6 @@
   }
   #flash.on { opacity: 1; transition: opacity .06s ease; }
 
-  /* ---------- 加速时的速度线 ---------- */
-  #boostFx {
-    position: fixed; inset: 0; z-index: 22; pointer-events: none; opacity: 0;
-    background: radial-gradient(circle, rgba(255,255,255,0) 42%, rgba(255,236,150,.42) 100%);
-    transition: opacity .25s ease;
-  }
-  #boostFx.on { opacity: 1; }
-
   #touchHint {
     position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
     z-index: 20; font-size: 13px; letter-spacing: 1px; color: #fff;
@@ -187,6 +137,7 @@
     pointer-events: none; display: none;
   }
 
+  /* ---------- 开局倒数 3-2-1-GO ---------- */
   .countdown {
     position: fixed; inset: 0; z-index: 24; pointer-events: none;
     display: flex; align-items: center; justify-content: center;
@@ -201,6 +152,7 @@
     100% { transform: scale(1.3); opacity: 0; }
   }
 
+  /* ---------- 中央飘字提示（扣命 / 坠落） ---------- */
   .toast {
     position: fixed; top: 38%; left: 50%; z-index: 24; pointer-events: none;
     transform: translate(-50%, -50%);
@@ -209,7 +161,6 @@
     animation: toastUp .9s ease forwards;
   }
   .toast.good { color: #2fbf6e; }
-  .toast.bolt { color: #ffab2e; }
   @keyframes toastUp {
     0%   { transform: translate(-50%, -20%) scale(.7); opacity: 0; }
     25%  { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
@@ -218,37 +169,30 @@
   }
 </style>
 </head>
-<body>
+<body data-page-node-id="d6idCwRzDHjFLSNJSPNCnH">
 
 <!-- ==================== HUD：分数 / 生命 / 速度 ==================== -->
-<div id="hud">
-  <div class="panel">
-    <span class="label">分数</span>
-    <span id="scoreValue">0</span>
+<div id="hud" data-page-node-id="4UTEd4VFJGTTxmxaa4lRau">
+  <div class="panel" data-page-node-id="JZtUYxXZIjH2PY6kObyD4L">
+    <span class="label" data-page-node-id="e6ZJkJgMJrQSRrVOmEbMj6">分数</span>
+    <span id="scoreValue" data-page-node-id="VnpczNF7B03eQTreMPla5i">0</span>
   </div>
-  <div class="panel">
-    <span class="label">生命</span>
-    <span id="livesValue"></span>
+  <div class="panel" data-page-node-id="vGBE3LaNpj6EejGRfAtP6x">
+    <span class="label" data-page-node-id="MPej0uWEPcemAGL6osiHnk">生命</span>
+    <span id="livesValue" data-page-node-id="oiiqB4UbfDYC30IsQmSatc"></span>
   </div>
-  <div class="panel">
-    <span class="label">速度</span>
-    <div id="speedBarWrap"><div id="speedBar"></div></div>
+  <div class="panel" data-page-node-id="buGS7FTZVB1FxKgqZZnzY5">
+    <span class="label" data-page-node-id="ec9OorKWeJlcsKdZRvT9G8">速度</span>
+    <div id="speedBarWrap" data-page-node-id="zXxTHzNyOjJJ7HU6HwM9Sn"><div id="speedBar" data-page-node-id="Obw7cvfa1ThLvb1m4rveVr"></div></div>
   </div>
 </div>
 
-<!-- ==================== 季节指示 ==================== -->
-<div id="seasonTag"><span id="seasonIcon">🌸</span><span id="seasonName">春</span></div>
-
-<!-- ==================== 闪电加速 ==================== -->
-<div id="boostWrap"><div id="boostBar"></div></div>
-<button id="boltBtn"><span style="font-size:20px">⚡</span><span id="boltCount">0</span><span id="boltHint">按 F 加速</span></button>
-
-<div id="flash"></div>
-<div id="boostFx"></div>
-<div id="touchHint">左右滑动 / 点击 来操控小熊</div>
+<div id="flash" data-page-node-id="IAzplnZfLaNIMFu6CcVnSW"></div>
+<div id="touchHint" data-page-node-id="yitfGUip6sq5taWGdTSq6F">左右滑动 / 点击 来操控小球</div>
 
 <!-- ==================== 中央弹窗 ==================== -->
-<div id="overlay"><div class="card" id="card"></div></div>
+<div id="overlay" data-page-node-id="p941GtcGGfg97YcJnAtAVk"><div class="card" id="card" data-page-node-id="ZuywchPlZFTbmKknRxsBmL"></div></div>
+
 <script>
 /* ==================================================================
  *  three.js r167 内联版（由 ./libs/three.module.js 生成）
@@ -54058,213 +54002,222 @@ const __THREE = {ACESFilmicToneMapping, AddEquation, AddOperation, AdditiveAnima
 window.__THREE = __THREE;
 })();
 
-const THREE = window.__THREE;   // three.js 已内联在上方 <script> 中
-
 /* ==================================================================
- *  小熊快跑 · 四季滚动天空 3D
+ *  滚动天空 · 蓝色小球 3D  —— 单文件小游戏
+ *  three.js 通过相对路径 ./libs/three.module.js 引入
  *
- *  模块目录：
- *   模块 1  全局参数配置（速度 / 概率 / 四季配色 / 音乐参数）
+ *  目录：
+ *   模块 1  全局参数配置（速度 / 概率 / 颜色 都集中在这里）
  *   模块 2  渲染器、场景、相机、灯光
- *   模块 3  四季系统（缓慢平滑过渡）
- *   模块 4  地面网格 / 云朵 / 季节粒子 / 路边景物
- *   模块 5  地砖（含冬季冰面）
- *   模块 6  障碍（果冻方块 / 夏季水塘）
- *   模块 7  金币
- *   模块 8  玩家：小熊模型（GLB + 备用拼装小熊）
- *   模块 9  状态机 / HUD / 弹窗 / 闪电加速
- *   模块 10 输入控制
- *   模块 11 世界生成
+ *   模块 3  地面网格背景
+ *   模块 4  装饰云朵
+ *   模块 5  地块方块（随机铺设的地面）
+ *   模块 6  障碍方块
+ *   模块 7  掉落金币
+ *   模块 8  玩家蓝色小球
+ *   模块 9  游戏状态机 / HUD / 弹窗
+ *   模块 10 输入控制（键盘 / 鼠标移动 / 鼠标点击）
+ *   模块 11 世界生成（随机铺砖 + 随机障碍 + 随机金币）
  *   模块 12 碰撞检测
  *   模块 13 主循环
- *   模块 14 声音（四季 BGM + 音效）
- *   模块 15 自适应与启动
+ *   模块 14 自适应与启动
  * ================================================================== */
+const THREE = window.__THREE;   // three.js 已内联到本文件，双击即可玩（file:// 下模块会被浏览器拦截）
 
 
 /* ==================================================================
  * 【模块 1】全局参数配置区
- * 所有高频调整项都集中在这里，改这里即可。
+ * 所有高频调整项（速度、掉落概率、颜色、尺寸）集中在此，改这里即可。
  * ================================================================== */
 const CFG = {
 
-  /* ---------- 赛道与地面 ---------- */
-  LANE_COUNT:      5,
-  LANE_WIDTH:      1.5,
-  TRACK_HALF:      3.75,
-  VIEW_DISTANCE:   92,
-  RECYCLE_Z:       14,
-  GROUND_Y:       -7.0,
+  /* ---------- 赛道与地面（整条跑道悬在半空） ---------- */
+  LANE_COUNT:      5,       // 车道数量
+  LANE_WIDTH:      1.5,     // 单条车道宽度
+  TRACK_HALF:      3.75,    // 赛道半宽 = LANE_COUNT * LANE_WIDTH / 2
+  VIEW_DISTANCE:   96,      // 前方生成距离：越大越远、也越耗性能
+  RECYCLE_Z:       14,      // 物体 Z 超过此值即回收复用
+  GROUND_Y:       -7.0,     // 地面高度（负值 = 跑道悬在半空，脚下是云海）
 
-  TILE_SIZE:       1.5,
-  TILE_HEIGHT:     0.36,
-  HOLE_GAP_CHANCE: 0.15,
-  HOLE_COOLDOWN:   6,
-  HOLE_MIN_ROW:    28,
-  HOLE_MAX_ROWS:   2,
-  TILE_RISE_TIME:  0.32,
+  TILE_SIZE:       1.5,     // 地块方块边长（与车道对齐，形成网格观感）
+  TILE_HEIGHT:     0.36,    // 地块厚度（顶面固定在 y = 0）
+  TILE_FILL_RATE:  1.0,     // 【概率】非坑车道铺砖的概率（1 = 全铺满，只在坑处留空）
+  HOLE_GAP_CHANCE: 0.16,    // 【概率】新开一个缺口的概率（约每 6 排一个坑）
+  HOLE_COOLDOWN:   6,       // 两个坑之间至少隔多少排（防止坑连成一片）
+  HOLE_MIN_ROW:    28,      // 开局前多少排不挖坑
+  HOLE_MAX_ROWS:   2,       // 单个坑最多跨几排（2 排 = 3 米，一次二段跳可越过）
+  TILE_RISE_TIME:  0.32,    // 地砖从下方升起的动画时长（秒）
 
-  /* ---------- 玩家小熊 ---------- */
-  PLAYER_RADIUS:   0.46,      // 碰撞半径（比视觉略小，判定更宽容）
-  PLAYER_START_Y:  9,
-  GRAVITY:         52,
-  KEY_SPEED:       10.5,
-  FOLLOW:          11,
-  DASH_SPEED:      26,
-  HIT_SCALE:       0.80,
-  MODEL_URL:       './bear.glb',
-  BEAR_HEIGHT:     0.85,      // 小熊身高：只占大半条车道，看起来更精致
+  /* ---------- 玩家蓝色小球 ---------- */
+  BALL_RADIUS:     0.50,    // 小球半径
+  BALL_START_Y:    9,       // 出生高度（从天上快速落下）
+  BALL_GRAVITY:    52,      // 下落重力加速度
+  BALL_KEY_SPEED:  10.5,    // 键盘 ← → 的横向速度
+  BALL_FOLLOW:     11,      // 鼠标跟随插值速度（越大越跟手）
+  BALL_DASH_SPEED: 26,      // 点击冲刺的横向速度
+  BALL_HIT_SCALE:  0.84,    // 碰撞盒相对半径的缩放（<1 更宽容）
 
-  /* ---------- 跳跃 ---------- */
-  MAX_JUMPS:       2,
-  JUMP_VELOCITY:   13.0,
-  JUMP_HOLD_MAX:   0.14,
-  GRAVITY_JUMP:    56,
-  COYOTE_TIME:     0.10,
+  /* ---------- 跳跃（空格，可二段跳） ---------- */
+  MAX_JUMPS:       2,       // 最大连续跳跃次数（1 = 单跳，2 = 二段跳）
+  JUMP_VELOCITY:   13.0,    // 起跳速度（跳高约 1.5 米，可越过一个坑）
+  JUMP_HOLD_MAX:   0.14,    // 按住空格可额外滞空的时间
+  GRAVITY_JUMP:    56,      // 跳跃时的重力
+  COYOTE_TIME:     0.10,    // 刚滚出边缘仍可起跳的宽容时间（秒）
+  FALL_DEATH_Y:   -3.2,     // 掉到这个高度 = 彻底坠落（屏幕外）
 
-  /* ---------- 速度与难度 ---------- */
-  BASE_SPEED:      9.4,
-  MAX_SPEED:       21,
-  MAX_SPEED_ABS:   25,
-  SPEED_GROWTH:    0.26,
-  HURT_SLOWDOWN:   0.55,
-  SAFE_AFTER_PROTECT: 14,
+  /* ---------- 前进速度与难度曲线（标准 = 中等；可用难度按钮再乘倍率） ---------- */
+  BASE_SPEED:      9.4,     // 起始速度
+  MAX_SPEED:       21,      // 速度上限（标准档）
+  MAX_SPEED_ABS:   25,      // 全局速度硬上限（难度倍率乘完之后再封顶一次）
+  SPEED_GROWTH:    0.26,    // 每秒速度增量（约 45 秒到达上限）
+  HURT_SLOWDOWN:   0.55,    // 受伤瞬间减速比例（1 = 不减速）
+  SAFE_AFTER_PROTECT: 14,   // 保护结束后，前方再保持这么多「排」（1 排 = 1.5 米）没有障碍与坑
 
-  /* ---------- 障碍 ---------- */
-  OBSTACLE_CHANCE: 0.19,
-  OBSTACLE_MAX:    2,
-  OBSTACLE_GAP:    3,
-  OBSTACLE_MIN_ROW: 22,
-  OBSTACLE_W:      0.40,      // 约 1/4 车道宽：小巧不挡路，斜着就能溜过去
-  OBSTACLE_H:      0.85,
-  OBSTACLE_D:      0.50,      // 纵深也收窄，跳跃更容易越过
-  OBSTACLE_FORGIVE: 0.12,
-  POND_CHANCE:     0.40,      // 【夏】水塘障碍所占比例
-  POND_H:          0.42,      // 水塘很矮，轻轻一跳就过去
-  GATE_CHANCE:     0.55,      // 【概率】障碍成"对"出现的概率（两边各一个，中间留缝斜着穿过）
-  OBSTACLE_OFFSET: 0.55,      // 障碍偏离车道中心的距离（贴边摆放，中间留出通过的缝）
+  /* ---------- 障碍方块（撞到侧面 => 扣命；跳跃可以越过） ---------- */
+  OBSTACLE_CHANCE:  0.19,   // 【概率】每排生成障碍的概率（会再乘以难度倍率）
+  OBSTACLE_MAX:     2,      // 单排最多同时出现的障碍数（2 = 挑战档能同时挡两条道）
+  OBSTACLE_GAP:     3,      // 两组障碍之间至少间隔的空排行数（约 4.5 米）
+  OBSTACLE_MIN_ROW: 22,     // 开局前多少排不出现障碍（先熟悉手感）
+  OBSTACLE_W:       1.22,   // 障碍宽度
+  OBSTACLE_H:       1.10,   // 障碍高度
+  OBSTACLE_D:       1.22,   // 障碍纵深
+  OBSTACLE_FORGIVE: 0.16,   // 碰撞判定宽容值
 
-  /* ---------- 金币 ---------- */
-  COIN_CHANCE:     0.22,
-  COIN_CHAIN_RATE: 0.45,
-  COIN_RADIUS:     0.42,
-  COIN_THICK:      0.14,
-  COIN_START_Y:    16,
-  COIN_FALL_SPEED: 12,
-  COIN_REST_Y:     1.05,
-  COIN_SPIN:       4.0,
-
-  /* ---------- 闪电加速 ---------- */
-  BOLT_PER_SCORE:  10,        // 每 10 分获得 1 次加速
-  BOLT_MAX:        3,         // 最多存 3 次
-  BOOST_TIME:      5.0,       // 加速持续 5 秒
-  BOOST_SPEED_MUL: 1.5,       // 加速倍率
-  BOOST_FOV:       68,        // 加速时相机视野（正常 56）
-
-  /* ---------- 四季（缓慢变化：以「金币」为主要节奏） ---------- */
-  SEASON_COINS:      100,     // 每收集这么多枚金币，才推进到下一个季节
-  SEASON_FADE_COINS: 26,      // 末尾这么多枚金币的区间内完成渐变（越接近换季越明显）
-  SEASON_MAX_RATE:   0.020,   // 渐变速度上限：每秒最多推进 2%（保证至少 50 秒的慢慢过渡）
-  SEASON_TIME_HOLD:  90,      // 兜底：如果一直吃不到币，90 秒后也开始慢慢换季
-  SEASON_TIME_FADE:  34,      // 兜底换季的过渡时长
-  ICE_CHANCE:      0.18,      // 【冬】冰面地砖概率
-  ICE_SLIP:        0.85,      // 冰面打滑强度（0 = 不打滑）
-  PARTICLE_COUNT:  240,       // 季节飘落物数量
+  /* ---------- 金币（从天上掉落，接到 +1 分） ---------- */
+  COIN_CHANCE:     0.22,    // 【概率】每排生成金币的概率
+  COIN_CHAIN_RATE: 0.45,    // 【概率】一次连出 3 枚金币的概率
+  COIN_RADIUS:     0.42,    // 金币半径
+  COIN_THICK:      0.14,    // 金币厚度
+  COIN_START_Y:    16,      // 金币从天而降的起点高度
+  COIN_FALL_SPEED: 12,      // 金币下落速度
+  COIN_REST_Y:     1.05,    // 金币落地后静止的高度
+  COIN_SPIN:       4.0,     // 金币自转速度（弧度/秒）
 
   /* ---------- 声音 ---------- */
-  SFX_VOLUME:      0.34,      // 音效音量（要高于 BGM，保证反馈听得见）
-  MUSIC_VOLUME:    0.13,      // BGM 音量（低于音效）
-  SFX_ON:          true,
-  MUSIC_ON:        true,
-  FOOT_STEP:       0.27,      // 脚步声间隔（秒）
+  SFX_VOLUME:      0.30,    // 音效音量（0 = 静音）
+  MUSIC_VOLUME:    0.16,    // 背景音乐音量
+  SFX_ON:          true,    // 总开关：音效
+  MUSIC_ON:        true,    // 总开关：背景音乐
 
   /* ---------- 生命与节奏 ---------- */
-  START_LIVES:     3,
-  INVINCIBLE_TIME: 1.6,
-  SPAWN_PROTECT:   3.0,
-  LAND_NO_SNAP_TIME: 0.6,
-  START_SAFE_DIST: 34,
-  PROTECT_VISUAL_LEAD: 0.6
+  START_LIVES:     3,       // 初始生命数
+  INVINCIBLE_TIME: 1.6,     // 受伤后无敌时长（秒）
+  PROTECT_VISUAL_LEAD: 0.6, // 保护罩提前淡出的提前量（秒），让「消失」更自然
+  SPAWN_PROTECT:   3.0,     // 【新手保护】每条命开始时（开局 / 重生）的保护罩时长（3 秒）
+  LAND_NO_SNAP_TIME: 0.6,   // 落地后这段时间内不吸附、不传送（只按惯性移动）
+  START_SAFE_DIST: 34,      // 开局前多少距离内不放障碍与金币
+
+  /* ---------- 配色（明亮可爱风） ---------- */
+  COLOR: {
+    SKY_TOP:     '#9fdcff',  // 天空渐变顶部
+    SKY_BOTTOM:  '#e9f9ff',  // 天空渐变底部
+    FOG:         0xd6f0ff,   // 远景雾色
+    GRID_BG:     '#e9f8ff',  // 地面底色
+    GRID_LINE:   '#b6dff3',  // 地面网格线
+    GRID_DOT:    '#8ecdec',  // 网格交叉点
+    BALL:        '#2f7df0',  // 小球主色（蓝）
+    BALL_LIGHT:  '#78bbff',  // 小球高光色
+    BALL_GLOW:   0x3b82f6,   // 小球自发光（让蓝色在浅色路面更跳）
+    BALL_DOT:    'rgba(255,255,255,.92)', // 小球白色花纹
+    TILES: [                 // 地砖马卡龙色板（随机取用）
+      '#ffc2d4', '#a9ecc2', '#ffe89a', '#b9caff', '#ffd0a3', '#cdb8ff', '#a9e6ee'
+    ],
+    TILE_SIDE:   '#cfe3f2',  // 地砖侧面（从空中跑道看下去能看厚度）
+    VOID:        '#9fd6f5',  // 空洞处的天空色（无缝接回天空渐变，看起来像悬在半空）
+    OBSTACLE:     '#ff6b6b', // 障碍主体色
+    OBSTACLE_TOP: '#ffd166', // 障碍顶盖色
+    COIN:         '#ffd23f', // 金币主色
+    COIN_EDGE:    '#f0a52b', // 金币边缘色
+    SHADOW:       '#2b6ea8'  // 假阴影颜色
+  }
 };
 
-/* ==================================================================
- * 四季配置：每一季的天空 / 雾 / 地砖色调 / 灯光 / 障碍配色 / 飘落物 / 音乐
- * 关键：相邻两季之间会做 12 秒的插值，所以这里是「慢慢变」而不是瞬间切换。
- * ================================================================== */
-const SEASONS = [
-  {
-    key: 'spring', name: '春', icon: '🌸',
-    skyTop: '#bfe9d2', skyMid: '#e3fbe6', skyBottom: '#f7fff4',
-    fog: 0xdfeee0, grid: 0xcfeacf, dot: 0x9ed3a4, void: 0xe8f8ea,
-    tileTint: 0xdff7cf, tileTintAmt: 0.28,
-    sun: { color: 0xfff4dc, intensity: 2.0 },
-    hemi: { sky: 0xdff7e2, ground: 0xbfe6c2, intensity: 1.50 },
-    amb: { color: 0xfff6e6, intensity: 0.34 },
-    obstacle: { body: '#ff9ec4', cap: '#ffe0ee', glow: 0xff6fae },
-    foliage: { color: 0xa9e39a, scale: 1.00 },
-    accent: { color: 0xffb7d5, scale: 1.00 },     // 春：花朵点缀
-    trunk: 0x9c7b52,
-    particle: { color: 0xffc2d8, fall: 1.6, sway: 1.3, size: 0.20 },
-    ice: 0, pond: 0,
-    music: { bpm: 112, root: 62, lead: 'triangle', leadGain: 0.10, drum: 0.075, pad: 0.10, flute: 1.0, saw: 0.0 }
-  },
-  {
-    key: 'summer', name: '夏', icon: '🌿',
-    skyTop: '#8fd9f2', skyMid: '#d4f5ff', skyBottom: '#eaffff',
-    fog: 0xc6e9f5, grid: 0xb7e3c2, dot: 0x4fa563, void: 0xdff6ff,
-    tileTint: 0xcfeeb2, tileTintAmt: 0.30,
-    sun: { color: 0xfffbe8, intensity: 2.65 },     // 强光 → 斑驳树影
-    hemi: { sky: 0xd8f6ff, ground: 0x9fd7a0, intensity: 1.62 },
-    amb: { color: 0xfffce8, intensity: 0.40 },
-    obstacle: { body: '#4fc98a', cap: '#d9ffe6', glow: 0x2fae63 },
-    foliage: { color: 0x2f9e46, scale: 1.30 },     // 夏：浓密树冠
-    accent: { color: 0xffe066, scale: 0.55 },      // 夏：阳光斑点
-    trunk: 0x7d5f3c,
-    particle: { color: 0xfff0b0, fall: 1.0, sway: 0.6, size: 0.15 },  // 浮尘/花粉
-    ice: 0, pond: 1,                                // 夏：水塘障碍
-    music: { bpm: 132, root: 67, lead: 'sawtooth', leadGain: 0.085, drum: 0.115, pad: 0.07, flute: 0.25, saw: 0.7 }
-  },
-  {
-    key: 'autumn', name: '秋', icon: '🍁',
-    skyTop: '#ffd9a8', skyMid: '#ffe9c4', skyBottom: '#fff6e0',
-    fog: 0xf5dcb8, grid: 0xe8c48f, dot: 0xc07a34, void: 0xfbe9cb,
-    tileTint: 0xffcf8a, tileTintAmt: 0.34,
-    sun: { color: 0xffe0b0, intensity: 2.05 },
-    hemi: { sky: 0xffe6c4, ground: 0xd9a15c, intensity: 1.42 },
-    amb: { color: 0xffe8cc, intensity: 0.38 },
-    obstacle: { body: '#f08a3c', cap: '#ffd9a0', glow: 0xd96a1e },
-    foliage: { color: 0xe8843a, scale: 1.05 },     // 秋：橙红树冠
-    accent: { color: 0xc9552f, scale: 1.10 },      // 秋：落叶堆
-    trunk: 0x8a5a34,
-    particle: { color: 0xef8f3c, fall: 2.1, sway: 1.6, size: 0.23 },  // 枫叶
-    ice: 0, pond: 0,
-    music: { bpm: 104, root: 60, lead: 'triangle', leadGain: 0.095, drum: 0.055, pad: 0.14, flute: 0.45, saw: 0.15 }
-  },
-  {
-    key: 'winter', name: '冬', icon: '❄️',
-    skyTop: '#cfe4ef', skyMid: '#eaf5fb', skyBottom: '#f8fdff',
-    fog: 0xe4f0f7, grid: 0xdceaf2, dot: 0xa9c6d6, void: 0xf2f9fd,
-    tileTint: 0xeaf7ff, tileTintAmt: 0.42,
-    sun: { color: 0xf2f8ff, intensity: 1.75 },
-    hemi: { sky: 0xeaf6ff, ground: 0xcfe2ec, intensity: 1.38 },
-    amb: { color: 0xf0f8ff, intensity: 0.46 },
-    obstacle: { body: '#9fd3ea', cap: '#f2fbff', glow: 0x6fb6d8 },
-    foliage: { color: 0xdff0f7, scale: 0.72 },     // 冬：覆雪枯枝
-    accent: { color: 0xffffff, scale: 1.25 },      // 冬：雪帽
-    trunk: 0x8c7b6a,
-    particle: { color: 0xffffff, fall: 1.2, sway: 0.9, size: 0.17 },  // 雪花
-    ice: 1, pond: 0,                                // 冬：结冰路面
-    music: { bpm: 96, root: 55, lead: 'sine', leadGain: 0.09, drum: 0.042, pad: 0.16, flute: 0.2, saw: 0.0 }
-  }
-];
-
-/* 由配置派生的常量 */
-const LANE_X = [];
+/* 由配置派生的常用常量 */
+const LANE_X = [];                                        // 各车道中心 X
 for (let i = 0; i < CFG.LANE_COUNT; i++) LANE_X.push(-CFG.TRACK_HALF + CFG.LANE_WIDTH * (i + 0.5));
+const BALL_MIN_X = -CFG.TRACK_HALF + CFG.BALL_RADIUS;     // 小球左右活动边界
+const BALL_MAX_X =  CFG.TRACK_HALF - CFG.BALL_RADIUS;
 const ALL_LANES = LANE_X.map((_, i) => i);
-const P_MIN_X = -CFG.TRACK_HALF + CFG.PLAYER_RADIUS;
-const P_MAX_X =  CFG.TRACK_HALF - CFG.PLAYER_RADIUS;
-const TILE_Y = -CFG.TILE_HEIGHT / 2;
+
+/* 调试接口：方便在控制台查看状态（不影响游戏逻辑） */
+window.__game = {
+  CFG,
+  get state() { return game.state; },
+  get y() { return game.ballY; },
+  get grounded() { return game.grounded; },
+  get lives() { return game.lives; },
+  get score() { return game.score; },
+  get tiles() { return activeTiles.length; },
+  /** 只读：已累计滚动的世界距离（米），以及排号/下一排阈值，便于排查生成节奏 */
+  get travel() { return game.travel; },
+  get rowMeta() { return { rowSpawned, nextRowTravel: +nextRowTravel.toFixed(2) }; },
+  get tileStats() { return window.__tileStats || { active: activeTiles.length, max: MAX_TILES }; },
+  get spawnStats() { return window.__spawnStats || null; },
+  /** 只读：全部活动地砖的原始数据（调试用） */
+  rawTiles() { return activeTiles.map(t => ({ lane: t.lane, z: +t.z.toFixed(2), rise: +t.rise.toFixed(2) })); },
+  get obstacles() { return obstacles.length; },
+  get elapsed() { return game.elapsed; },
+  get protect() { return game.protect; },
+  get landLock() { return game.landLock; },
+  /** 调试用时间倍速（自动化测试加速跑）；1 = 正常 */
+  set timeScale(v) { game.timeScale = Math.max(0.1, Math.min(8, +v || 1)); },
+  get timeScale() { return game.timeScale; },
+  /** 只读快照：这一排各车道是否有砖（排查空洞用） */
+  get rowInfo() {
+    return ALL_LANES.map(lane => ({
+      lane,
+      x: +LANE_X[lane].toFixed(2),
+      hasTile: !!tileUnderBall(lane)
+    }));
+  },
+  /** 只读快照：前方每 3 米一档，各车道是否有砖（1=有 0=空），用于排查空洞生成 */
+  ahead() {
+    const out = [];
+    for (let z = -3; z >= -30; z -= 3) {
+      let s = '';
+      for (const lane of ALL_LANES) {
+        let ok = false;
+        for (const t of activeTiles) {
+          if (t.lane === lane && Math.abs(t.z - z) < 1.0) { ok = true; break; }
+        }
+        s += ok ? '■' : '□';
+      }
+      out.push(s);
+    }
+    return out;
+  },
+  /**
+   * 只读快照：前方若干米内的「感知信息」，供自动化 AI 测试使用。
+   * 返回 { lane: 当前车道, maxLane: 最大车道号, rows: [{z,blocked:[lane|null],hole:[lane]}] }
+   */
+  sense(range = 14) {
+    const obs = obstacles.filter(o => o.alive && o.z < 1 && o.z > -range)
+      .map(o => ({ lane: Math.round((o.x + CFG.TRACK_HALF) / CFG.LANE_WIDTH - 0.5), z: o.z }));
+    const holes = [];
+    /* 当前排网格相对屏幕的偏移：砖只在 ROW_START - travel 的整数倍排上，
+       所以取样必须从这个偏移开始，否则会把整条跑道误判成全是洞 */
+    const rowOffset = ((ROW_START - game.travel) % CFG.TILE_SIZE + CFG.TILE_SIZE) % CFG.TILE_SIZE;
+    for (const lane of ALL_LANES) {
+      /* 按「排」取样，而不是直接比浮点 z：砖与砖之间有 3% 的缝，直接比 z 会把缝误判成坑 */
+      let gap = 0, start = null, seenGround = false;
+      const rows = Math.floor(range / CFG.TILE_SIZE);
+      for (let r = 0; r <= rows; r++) {
+        const z = rowOffset - r * CFG.TILE_SIZE;
+        const ok = activeTiles.some(t => t.lane === lane && Math.abs(t.z - z) < CFG.TILE_SIZE * 0.5);
+        if (ok) { if (start !== null) break; seenGround = true; continue; }   // 砖之后的缺口不算「脚下这段」
+        if (start === null) start = z;
+        gap++;
+      }
+      if (gap > 0 && seenGround) holes.push({ lane, rows: gap, z: +start.toFixed(2) });
+    }
+    return {
+      lane: laneOfBall(), x: game.ballX, maxLane: CFG.LANE_COUNT - 1,
+      grounded: game.grounded, protect: +game.protect.toFixed(2),
+      height: +(game.ballY - CFG.BALL_RADIUS).toFixed(2),
+      obstacles: obs, holes
+    };
+  }
+};
 
 
 /* ==================================================================
@@ -54278,37 +54231,32 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xdfeee0, 46, 108);
+scene.fog = new THREE.Fog(CFG.COLOR.FOG, 46, 108);        // 远处淡出，遮住生成边缘
 
 const camera = new THREE.PerspectiveCamera(56, window.innerWidth / window.innerHeight, 0.1, 400);
 camera.position.set(0, 4.1, 8.2);
 camera.lookAt(0, 0.9, -6);
-const CAM_FOV_BASE = 56;
 
-/* --- 天空：一张 4×256 的竖向渐变画布，可随季节实时重绘 --- */
-const skyCanvas = document.createElement('canvas');
-skyCanvas.width = 4; skyCanvas.height = 256;
-const skyCtx = skyCanvas.getContext('2d');
-const skyTex = new THREE.CanvasTexture(skyCanvas);
-skyTex.colorSpace = THREE.SRGBColorSpace;
-scene.background = skyTex;
+/* --- 天空：竖向渐变画布贴图当作场景背景，简单又好看 --- */
+(function buildSky() {
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, CFG.COLOR.SKY_TOP);
+  g.addColorStop(0.62, '#d9f2ff');
+  g.addColorStop(1, CFG.COLOR.SKY_BOTTOM);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+})();
 
-const _cssColor = new THREE.Color();
-function css(c) { return '#' + _cssColor.copy(c).getHexString(); }
+/* --- 灯光：半球光保证整体明亮柔和，平行光负责投影 --- */
+scene.add(new THREE.HemisphereLight(0xffffff, 0xc9e8fa, 1.45));
+scene.add(new THREE.AmbientLight(0xfff0e0, 0.32));
 
-function drawSky(top, mid, bottom) {
-  const g = skyCtx.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0, css(top));
-  g.addColorStop(0.62, css(mid));
-  g.addColorStop(1, css(bottom));
-  skyCtx.fillStyle = g;
-  skyCtx.fillRect(0, 0, 4, 256);
-  skyTex.needsUpdate = true;
-}
-
-const hemiLight = new THREE.HemisphereLight(0xdff7e2, 0xbfe6c2, 1.5);
-const ambLight  = new THREE.AmbientLight(0xfff6e6, 0.34);
-const sunLight  = new THREE.DirectionalLight(0xfff4dc, 2.0);
+const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
 sunLight.position.set(7, 18, 9);
 sunLight.castShadow = true;
 sunLight.shadow.mapSize.set(1024, 1024);
@@ -54321,162 +54269,29 @@ sunLight.shadow.camera.far = 70;
 sunLight.shadow.bias = -0.0012;
 sunLight.shadow.normalBias = 0.02;
 sunLight.target.position.set(0, 0, -6);
-scene.add(hemiLight, ambLight, sunLight, sunLight.target);
+scene.add(sunLight, sunLight.target);
 
 
 /* ==================================================================
- * 【模块 3】四季系统
- *  - 节奏：每满 100 枚金币推进一个季节（兜底：长时间不吃币也会换季）
- *  - 过渡：渐变速度被限制在每秒 2%，所以无论吃币多快都是「慢慢变」
- *  - 所有颜色 / 灯光 / 飘落物 / 音乐参数都参与插值，是「渐变」不是「切换」
+ * 【模块 3】地面网格背景
+ * 地面被下移到 GROUND_Y（负值）—— 跑道因此悬在半空中，
+ * 脚下是一层淡淡的网格云海，视觉上「在半空中一样」。
  * ================================================================== */
-const seasonState = { index: 0, k: 0, t: 0 };
+const GROUND_W = 60;                                      // 地面宽度
+const GROUND_D = 210;                                     // 地面纵深
+const GRID_CELL = CFG.LANE_WIDTH;                         // 网格单元尺寸（与车道对齐）
 
-/* 缓存的插值结果（避免每帧新建对象） */
-const VIEW = {
-  skyTop: new THREE.Color(), skyMid: new THREE.Color(), skyBottom: new THREE.Color(),
-  fog: new THREE.Color(), grid: new THREE.Color(), dot: new THREE.Color(), voidC: new THREE.Color(),
-  tileTint: new THREE.Color(), tileTintAmt: 0,
-  sunColor: new THREE.Color(), sunInt: 2,
-  hemiSky: new THREE.Color(), hemiGround: new THREE.Color(), hemiInt: 1.5,
-  ambColor: new THREE.Color(), ambInt: 0.34,
-  obBody: new THREE.Color(), obCap: new THREE.Color(), obGlow: new THREE.Color(),
-  foliage: new THREE.Color(), foliageScale: 1,
-  accent: new THREE.Color(), accentScale: 1,
-  trunk: new THREE.Color(),
-  particle: new THREE.Color(), fall: 1.5, sway: 1, pSize: 0.2,
-  ice: 0, pond: 0,
-  music: { bpm: 112, root: 62, lead: 'triangle', leadGain: 0.1, drum: 0.075, pad: 0.1, flute: 1, saw: 0 }
-};
-
-const _cA = new THREE.Color(), _cB = new THREE.Color();
-function mixColor(out, hexA, hexB, k) {
-  return out.copy(_cA.setHex(hexA)).lerp(_cB.setHex(hexB), k);
-}
-function mix(out, a, b, k) { return a + (b - a) * k; }
-
-/**
- * 推进季节（每帧调用）
- * 目标进度由「金币」决定：每 100 枚币换一季，最后 26 枚币的区间内完成渐变。
- * 但真实进度 k 每秒最多只推进 SEASON_MAX_RATE，所以吃币再快也不会瞬间换季。
- */
-function updateSeason(dt) {
-  seasonState.t += dt;
-  /* ① 金币进度：本季已收集到的金币数 */
-  const within = game.score % CFG.SEASON_COINS;
-  const fadeStart = CFG.SEASON_COINS - CFG.SEASON_FADE_COINS;
-  let coinTarget = within <= fadeStart ? 0 : (within - fadeStart) / CFG.SEASON_FADE_COINS;
-  /* ② 兜底时间进度：一直吃不到币也会慢慢换季 */
-  const timeTarget = (seasonState.t - CFG.SEASON_TIME_HOLD) / CFG.SEASON_TIME_FADE;
-  const target = Math.max(0, Math.min(1, Math.max(coinTarget, timeTarget)));
-
-  /* ③ 限速：每秒最多变化 SEASON_MAX_RATE —— 这就是「慢慢变」的关键 */
-  if (target > seasonState.k) seasonState.k = Math.min(target, seasonState.k + CFG.SEASON_MAX_RATE * dt);
-  else seasonState.k = Math.max(target, seasonState.k - CFG.SEASON_MAX_RATE * dt);
-
-  /* ④ 过渡完成 → 正式进入下一季 */
-  if (seasonState.k >= 1) {
-    seasonState.index = (seasonState.index + 1) % SEASONS.length;
-    seasonState.k = 0;
-    seasonState.t = 0;
-    const s = SEASONS[seasonState.index];
-    showToast(s.icon + ' ' + s.name + '天来了', 'good');
-  }
-}
-
-/** 当前季节的插值系数：0 = 完全在本季，1 = 完全进入下一季 */
-function seasonMix() {
-  const i = seasonState.index;
-  const j = (i + 1) % SEASONS.length;
-  let k = Math.max(0, Math.min(1, seasonState.k));
-  k = k * k * (3 - 2 * k);      // smoothstep：两头慢、中间快，过渡更自然
-  return { a: SEASONS[i], b: SEASONS[j], k };
-}
-
-function updateSeasonBlend() {
-  const { a, b, k } = seasonMix();
-  mixColor(VIEW.skyTop, hexOf(a.skyTop), hexOf(b.skyTop), k);
-  mixColor(VIEW.skyMid, hexOf(a.skyMid), hexOf(b.skyMid), k);
-  mixColor(VIEW.skyBottom, hexOf(a.skyBottom), hexOf(b.skyBottom), k);
-  mixColor(VIEW.fog, a.fog, b.fog, k);
-  mixColor(VIEW.grid, a.grid, b.grid, k);
-  mixColor(VIEW.dot, a.dot, b.dot, k);
-  mixColor(VIEW.voidC, a.void, b.void, k);
-  mixColor(VIEW.tileTint, a.tileTint, b.tileTint, k);
-  VIEW.tileTintAmt = mix(a.tileTintAmt, b.tileTintAmt, k);
-
-  mixColor(VIEW.sunColor, a.sun.color, b.sun.color, k);
-  VIEW.sunInt = mix(a.sun.intensity, b.sun.intensity, k);
-  mixColor(VIEW.hemiSky, a.hemi.sky, b.hemi.sky, k);
-  mixColor(VIEW.hemiGround, a.hemi.ground, b.hemi.ground, k);
-  VIEW.hemiInt = mix(a.hemi.intensity, b.hemi.intensity, k);
-  mixColor(VIEW.ambColor, a.amb.color, b.amb.color, k);
-  VIEW.ambInt = mix(a.amb.intensity, b.amb.intensity, k);
-
-  mixColor(VIEW.obBody, hexOf(a.obstacle.body), hexOf(b.obstacle.body), k);
-  mixColor(VIEW.obCap, hexOf(a.obstacle.cap), hexOf(b.obstacle.cap), k);
-  mixColor(VIEW.obGlow, a.obstacle.glow, b.obstacle.glow, k);
-
-  mixColor(VIEW.foliage, a.foliage.color, b.foliage.color, k);
-  VIEW.foliageScale = mix(a.foliage.scale, b.foliage.scale, k);
-  mixColor(VIEW.accent, a.accent.color, b.accent.color, k);
-  VIEW.accentScale = mix(a.accent.scale, b.accent.scale, k);
-  mixColor(VIEW.trunk, a.trunk, b.trunk, k);
-
-  mixColor(VIEW.particle, a.particle.color, b.particle.color, k);
-  VIEW.fall = mix(a.particle.fall, b.particle.fall, k);
-  VIEW.sway = mix(a.particle.sway, b.particle.sway, k);
-  VIEW.pSize = mix(a.particle.size, b.particle.size, k);
-  VIEW.ice = mix(a.ice, b.ice, k);
-  VIEW.pond = mix(a.pond, b.pond, k);
-
-  const ma = a.music, mb = b.music;
-  VIEW.music.bpm = mix(ma.bpm, mb.bpm, k);
-  VIEW.music.root = Math.round(mix(ma.root, mb.root, k));
-  VIEW.music.lead = k < 0.5 ? ma.lead : mb.lead;
-  VIEW.music.leadGain = mix(ma.leadGain, mb.leadGain, k);
-  VIEW.music.drum = mix(ma.drum, mb.drum, k);
-  VIEW.music.pad = mix(ma.pad, mb.pad, k);
-  VIEW.music.flute = mix(ma.flute, mb.flute, k);
-  VIEW.music.saw = mix(ma.saw, mb.saw, k);
-}
-
-function hexOf(s) { return parseInt(s.slice(1), 16); }
-
-/* 天空贴图不必每帧重绘：颜色变化超过阈值或每 0.15 秒重绘一次 */
-let skyDrawAcc = 0;
-const _lastSky = new THREE.Color();
-function applySeasonVisual(dt) {
-  drawSky(VIEW.skyTop, VIEW.skyMid, VIEW.skyBottom);
-  skyDrawAcc = 0;
-  scene.fog.color.copy(VIEW.fog);
-  groundMat.color.copy(VIEW.grid);
-  voidFloor.material.color.copy(VIEW.voidC);
-  hemiLight.color.copy(VIEW.hemiSky);
-  hemiLight.groundColor.copy(VIEW.hemiGround);
-  hemiLight.intensity = VIEW.hemiInt;
-  ambLight.color.copy(VIEW.ambColor);
-  ambLight.intensity = VIEW.ambInt;
-  sunLight.color.copy(VIEW.sunColor);
-  sunLight.intensity = VIEW.sunInt;
-}
-
-
-/* ==================================================================
- * 【模块 4】地面网格 / 云朵 / 季节飘落物 / 路边景物
- * ================================================================== */
-const GROUND_W = 60, GROUND_D = 210, GRID_CELL = CFG.LANE_WIDTH;
-
-const groundTex = (function () {
+const groundTex = (function buildGridTexture() {
   const S = 128;
   const c = document.createElement('canvas');
   c.width = c.height = S;
   const ctx = c.getContext('2d');
+  /* 底色透明，只画网格线 —— 让下方天空透出来，形成「云海网格」的轻盈感 */
   ctx.clearRect(0, 0, S, S);
-  ctx.strokeStyle = '#ffffff';                 // 白色线条，实际颜色由材质 color 决定（方便随季节染色）
+  ctx.strokeStyle = CFG.COLOR.GRID_LINE;                  // 单元网格线
   ctx.lineWidth = 2.6;
   ctx.strokeRect(1.3, 1.3, S - 2.6, S - 2.6);
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = CFG.COLOR.GRID_DOT;                     // 四角小圆点，强化网格感
   for (const p of [[0, 0], [S, 0], [0, S], [S, S]]) {
     ctx.beginPath(); ctx.arc(p[0], p[1], 4.2, 0, Math.PI * 2); ctx.fill();
   }
@@ -54488,27 +54303,37 @@ const groundTex = (function () {
   return t;
 })();
 
-const groundMat = new THREE.MeshBasicMaterial({
-  map: groundTex, transparent: true, opacity: 0.55, color: 0xcfeacf, depthWrite: false
-});
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(GROUND_W, GROUND_D), groundMat);
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(GROUND_W, GROUND_D),
+  new THREE.MeshBasicMaterial({
+    map: groundTex, transparent: true, opacity: 0.55,
+    color: 0xffffff, depthWrite: false
+  })
+);
 ground.rotation.x = -Math.PI / 2;
-ground.position.set(0, CFG.GROUND_Y, -GROUND_D / 2 + 24);
+ground.position.set(0, CFG.GROUND_Y, -GROUND_D / 2 + 24);  // 下沉到脚下，跑道悬空
 ground.renderOrder = -1;
 scene.add(ground);
+
+/* 每前进 1 米，网格贴图需要偏移的量（让网格跟着世界一起滚动） */
 const GRID_SCROLL_PER_UNIT = groundTex.repeat.y / GROUND_D;
 
-/* 跑道下方的"天空底板"，让缺口看起来是通透的天空 */
+/* 空洞底板：铺在跑道正下方的一层天空色，让「缺口」看起来是通透的蓝天，
+   而不是漆黑一片 —— 小球掉下去时能清楚看到自己坠落 */
 const voidFloor = new THREE.Mesh(
   new THREE.PlaneGeometry(GROUND_W * 1.4, GROUND_D),
-  new THREE.MeshBasicMaterial({ color: 0xe8f8ea, transparent: true, opacity: 0.72 })
+  new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.72 })
 );
 voidFloor.rotation.x = -Math.PI / 2;
 voidFloor.position.set(0, CFG.GROUND_Y + 0.6, -GROUND_D / 2 + 24);
 voidFloor.renderOrder = -2;
 scene.add(voidFloor);
 
-/* ---------- 云朵 ---------- */
+
+/* ==================================================================
+ * 【模块 4】装饰云朵
+ * 几团蓬松白云缓慢飘过，强化「滚动天空」的氛围。
+ * ================================================================== */
 const clouds = [];
 (function buildClouds() {
   const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
@@ -54529,159 +54354,28 @@ const clouds = [];
   }
 })();
 
-/* ---------- 季节飘落物（花瓣 / 浮尘 / 枫叶 / 雪花） ---------- */
-const PN = CFG.PARTICLE_COUNT;
-const pPos = new Float32Array(PN * 3);
-const pPhase = new Float32Array(PN);
-const pSpeed = new Float32Array(PN);
-for (let i = 0; i < PN; i++) {
-  pPos[i * 3]     = (Math.random() - 0.5) * 34;
-  pPos[i * 3 + 1] = Math.random() * 22 - 2;
-  pPos[i * 3 + 2] = -Math.random() * 90 + 10;
-  pPhase[i] = Math.random() * Math.PI * 2;
-  pSpeed[i] = 0.7 + Math.random() * 0.7;
-}
-const pGeo = new THREE.BufferGeometry();
-pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-
-/* 圆形柔边贴图，让飘落物看起来是花瓣/雪花而不是方块 */
-const pTex = (function () {
-  const S = 64;
-  const c = document.createElement('canvas');
-  c.width = c.height = S;
-  const ctx = c.getContext('2d');
-  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.55, 'rgba(255,255,255,.85)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  return t;
-})();
-
-const pMat = new THREE.PointsMaterial({
-  size: 0.2, map: pTex, transparent: true, opacity: 0.92,
-  depthWrite: false, sizeAttenuation: true
-});
-const particles = new THREE.Points(pGeo, pMat);
-particles.frustumCulled = false;
-scene.add(particles);
-
-/** 飘落物更新：随季节改变下落速度 / 摆动幅度 / 大小 / 颜色 */
-function updateParticles(dt, dz, t) {
-  pMat.color.copy(VIEW.particle);
-  pMat.size = VIEW.pSize;
-  for (let i = 0; i < PN; i++) {
-    const i3 = i * 3;
-    pPos[i3 + 1] -= VIEW.fall * pSpeed[i] * dt;
-    pPos[i3]     += Math.sin(t * 1.6 + pPhase[i]) * VIEW.sway * dt;
-    pPos[i3 + 2] += dz;                                   // 跟着世界一起后退
-    /* 秋天：小熊跑过时会卷起地面的枯叶 */
-    if (VIEW.ice < 0.5 && VIEW.fall > 1.8 && pPos[i3 + 1] < 1.1 && Math.abs(pPos[i3 + 2]) < 2.5) {
-      pPos[i3 + 1] += dt * 1.6;
-    }
-    if (pPos[i3 + 1] < -3 || pPos[i3 + 2] > 16) {         // 回收重生
-      pPos[i3]     = (Math.random() - 0.5) * 34;
-      pPos[i3 + 1] = 16 + Math.random() * 8;
-      pPos[i3 + 2] = -60 - Math.random() * 40;
-    }
-  }
-  pGeo.attributes.position.needsUpdate = true;
-}
-
-/* ---------- 路边景物：花草 / 树 / 落叶堆 / 覆雪枯枝 ---------- */
-/* 用同一套"树干 + 树冠 + 点缀"结构，靠颜色和缩放随季节形变，过渡自然 */
-const props = [];
-const PROP_GEO_TRUNK = new THREE.CylinderGeometry(0.10, 0.14, 1.0, 7);
-const PROP_GEO_LEAF  = new THREE.SphereGeometry(0.52, 10, 8);
-const PROP_GEO_ACC   = new THREE.SphereGeometry(0.26, 8, 6);
-
-(function buildProps() {
-  for (let i = 0; i < 30; i++) {
-    const g = new THREE.Group();
-    const trunk = new THREE.Mesh(PROP_GEO_TRUNK, new THREE.MeshLambertMaterial({ color: 0x9c7b52 }));
-    trunk.position.y = 0.5;
-    const leaf = new THREE.Mesh(PROP_GEO_LEAF, new THREE.MeshLambertMaterial({ color: 0xa9e39a }));
-    leaf.position.y = 1.15;
-    leaf.castShadow = true;
-    const acc = new THREE.Mesh(PROP_GEO_ACC, new THREE.MeshLambertMaterial({ color: 0xffb7d5 }));
-    acc.position.y = 1.5;
-    g.add(trunk, leaf, acc);
-    /* 只摆在跑道两侧，绝不伸到跑道上方（保证不遮挡视线） */
-    const side = Math.random() < 0.5 ? -1 : 1;
-    g.position.set(side * (5.2 + Math.random() * 4.6), -0.1, -Math.random() * 90 + 10);
-    const s = 0.85 + Math.random() * 0.75;
-    g.scale.setScalar(s);
-    g.userData.baseScale = s;
-    scene.add(g);
-    props.push(g);
-  }
-})();
-
-function updateProps(dz) {
-  for (const g of props) {
-    g.position.z += dz;
-    if (g.position.z > 16) {
-      g.position.z = -95 - Math.random() * 25;
-      const side = Math.random() < 0.5 ? -1 : 1;
-      g.position.x = side * (5.2 + Math.random() * 4.6);
-    }
-    const [trunk, leaf, acc] = g.children;
-    trunk.material.color.copy(VIEW.trunk);
-    leaf.material.color.copy(VIEW.foliage);
-    leaf.scale.setScalar(VIEW.foliageScale * (0.9 + g.userData.baseScale * 0.2));
-    acc.material.color.copy(VIEW.accent);
-    acc.scale.setScalar(Math.max(0.001, VIEW.accentScale));
-    acc.position.y = 1.15 + VIEW.foliageScale * 0.42;
-  }
-}
-
-/* 夏日斑驳树影：地面上几片缓慢移动的深色光斑 */
-const shadowBlobs = [];
-(function buildShadowBlobs() {
-  const geo = new THREE.CircleGeometry(1.5, 16);
-  for (let i = 0; i < 14; i++) {
-    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
-      color: 0x2f6b3a, transparent: true, opacity: 0, depthWrite: false
-    }));
-    m.rotation.x = -Math.PI / 2;
-    m.position.set((Math.random() - 0.5) * 16, CFG.GROUND_Y + 0.05, -Math.random() * 80 + 10);
-    m.scale.setScalar(0.7 + Math.random() * 1.1);
-    m.renderOrder = -0.5;
-    scene.add(m);
-    shadowBlobs.push(m);
-  }
-})();
-
-function updateShadowBlobs(dz) {
-  /* 夏季权重：sunIntensity 高 + 树冠大 => 光斑明显 */
-  const summerW = THREE.MathUtils.clamp((VIEW.foliageScale - 0.85) / 0.45, 0, 1);
-  for (const m of shadowBlobs) {
-    m.position.z += dz;
-    if (m.position.z > 16) {
-      m.position.z = -80 - Math.random() * 20;
-      m.position.x = (Math.random() - 0.5) * 16;
-    }
-    m.material.opacity = 0.16 * summerW;
-  }
-}
-
 
 /* ==================================================================
- * 【模块 5】地砖（InstancedMesh）
+ * 【模块 5】地块方块（InstancedMesh 实例化渲染）
+ * 每排每车道按概率随机铺一块马卡龙色方块；
+ * 「没有铺到方块」的位置就是空洞 —— 踩上去会坠落。
+ * 全部地砖共用一个实例化网格，几百块砖也只有 1 次 draw call。
  * ================================================================== */
+/* 实例池容量：铺满整条视野 + 回收区再多留几排余量，
+   容量不足会导致新砖被丢弃、跑道上随机出现「假空洞」，所以这里给足 */
 const MAX_TILES = Math.ceil((CFG.VIEW_DISTANCE + CFG.RECYCLE_Z) / CFG.TILE_SIZE + 6) * CFG.LANE_COUNT + 80;
 
+/* 地砖分成「顶面」和「侧面」两套材质：顶面用实例颜色随机上色，侧面统一淡蓝，
+   从高处俯视时能看出跑道是一块块悬空的厚板 */
 const tileMesh = new THREE.InstancedMesh(
   new THREE.BoxGeometry(CFG.TILE_SIZE * 0.97, CFG.TILE_HEIGHT, CFG.TILE_SIZE * 0.97),
   [
-    new THREE.MeshLambertMaterial({ color: 0xffffff }),
-    new THREE.MeshLambertMaterial({ color: 0xffffff }),
-    new THREE.MeshLambertMaterial({ color: 0xffffff }),
-    new THREE.MeshLambertMaterial({ color: 0xdfeaf2 }),
-    new THREE.MeshLambertMaterial({ color: 0xffffff }),
-    new THREE.MeshLambertMaterial({ color: 0xffffff })
+    new THREE.MeshLambertMaterial({ color: CFG.COLOR.TILE_SIDE }),  // +X
+    new THREE.MeshLambertMaterial({ color: CFG.COLOR.TILE_SIDE }),  // -X
+    new THREE.MeshLambertMaterial({ color: 0xffffff }),             // +Y 顶面（实例色）
+    new THREE.MeshLambertMaterial({ color: '#b9d4e8' }),            // -Y 底面
+    new THREE.MeshLambertMaterial({ color: CFG.COLOR.TILE_SIDE }),  // +Z
+    new THREE.MeshLambertMaterial({ color: CFG.COLOR.TILE_SIDE })   // -Z
   ],
   MAX_TILES
 );
@@ -54692,48 +54386,69 @@ tileMesh.frustumCulled = false;
 tileMesh.count = 0;
 scene.add(tileMesh);
 
+/* 地砖高度图：key = `车道:排号`，value = 该位置地砖的升起进度(0~1)
+   用于判断「小球脚下有没有方块」以及补位的瞬间逻辑 */
 const tileMap = new Map();
-const activeTiles = [];
+const activeTiles = [];                                   // 活动地砖：{ key, x, z, rise, color }
 const _m4 = new THREE.Matrix4();
 const _color = new THREE.Color();
-const _iceColor = new THREE.Color(0xdff4ff);
-const TILE_PALETTE = ['#ffc2d4', '#a9ecc2', '#ffe89a', '#b9caff', '#ffd0a3', '#cdb8ff', '#a9e6ee']
-  .map(h => new THREE.Color(h));
+const TILE_Y = -CFG.TILE_HEIGHT / 2;                      // 地砖中心高度（顶面在 y=0）
+const tilePalette = CFG.COLOR.TILES.map(h => new THREE.Color(h));
 
+/**
+ * 在指定车道、指定 Z 处新增一块地砖（带随机颜色）。
+ * z 在这里是「世界存档坐标」：砖的真实位置 = z0 + game.travel。
+ * 用固定的 z0 + 单一标量 travel 计算位置，可以彻底避免逐帧累加带来的浮点漂移
+ * （否则几百块砖各累加几百次，排距会从 1.5 漂成 0.74/0.76 交替，看起来像凭空出现裂缝）。
+ */
 function addTile(lane, z) {
+  const st = window.__spawnStats;
+  if (st) st.tileTries++;
   const key = `${lane}:${Math.round(z / CFG.TILE_SIZE)}`;
-  if (tileMap.has(key)) return;
-  if (activeTiles.length >= MAX_TILES) return;
+  if (tileMap.has(key)) { if (st) st.tileSkipDup++; return; }   // 同一格不重复铺
+  if (activeTiles.length >= MAX_TILES) { if (st) st.tileSkipCap++; return; }
   const t = {
-    lane, x: LANE_X[lane], z0: z, z, rise: 1,
-    color: TILE_PALETTE[(Math.random() * TILE_PALETTE.length) | 0],
-    ice: Math.random() < CFG.ICE_CHANCE && VIEW.ice > 0.5   // 只有冬天才会结冰
+    lane,
+    x: LANE_X[lane],
+    z0: z,                                                  // 存档坐标（不随时间变化）
+    z,                                                      // 当前屏幕坐标（每帧由 z0 + travel 重算）
+    rise: 1,                                                // 升起动画进度 1 → 0
+    color: tilePalette[(Math.random() * tilePalette.length) | 0]
   };
-  t.key = key;
-  tileMap.set(key, t);
+  t.key = key;                                             // 排号 = z / 砖长，保证唯一
+  tileMap.set(t.key, t);
   activeTiles.push(t);
 }
 
+/** 把第 i 个实例的矩阵与颜色写进 InstancedMesh */
 function writeTileInstance(i, t) {
-  const ease = 1 - t.rise;
+  const ease = 1 - t.rise;                                // 0 = 刚生成，1 = 完全升起
   _m4.makeTranslation(t.x, TILE_Y - t.rise * 0.6, t.z);
-  _m4.elements[5]  = 0.35 + ease * 0.65;
+  _m4.elements[5]  = 0.35 + ease * 0.65;                  // 升起时纵向拉伸
   _m4.elements[10] = 0.35 + ease * 0.65;
   tileMesh.setMatrixAt(i, _m4);
-  _color.copy(t.color).lerp(VIEW.tileTint, VIEW.tileTintAmt);
-  if (t.ice) _color.lerp(_iceColor, 0.75);
+  _color.copy(t.color);
   tileMesh.setColorAt(i, _color);
 }
 
+/**
+ * 每帧更新地砖位置并回收跑出视野的砖块。
+ * 位置一律用 z0 + travel 重算（不做累加），因此排距永远精确等于 TILE_SIZE。
+ */
 function updateTiles(dt) {
   const riseStep = dt / CFG.TILE_RISE_TIME;
+  let recycled = 0;
   for (let i = activeTiles.length - 1; i >= 0; i--) {
     const t = activeTiles[i];
     t.z = t.z0 + game.travel;
-    if (t.z > CFG.RECYCLE_Z) {
+    if (t.z > CFG.RECYCLE_Z) {                            // 回收：用数组尾元素补位
+      recycled++;
       tileMap.delete(t.key);
       const last = activeTiles.pop();
-      if (i < activeTiles.length) { activeTiles[i] = last; writeTileInstance(i, last); }
+      if (i < activeTiles.length) {
+        activeTiles[i] = last;
+        writeTileInstance(i, last);
+      }
       continue;
     }
     if (t.rise > 0) t.rise = Math.max(0, t.rise - riseStep);
@@ -54742,8 +54457,17 @@ function updateTiles(dt) {
   tileMesh.count = activeTiles.length;
   tileMesh.instanceMatrix.needsUpdate = true;
   if (tileMesh.instanceColor) tileMesh.instanceColor.needsUpdate = true;
+  /* 统计信息仅供调试接口使用 */
+  const st = window.__tileStats || (window.__tileStats = {});
+  st.active = activeTiles.length;
+  st.max = MAX_TILES;
+  st.recycled = recycled;
 }
 
+/**
+ * 查询某车道在「小球当前所在的那一排」是否有地砖。
+ * 用最近的地砖 z 反推排号，避免浮点误差；容差 0.62 砖长。
+ */
 function tileUnderBall(lane) {
   for (const t of activeTiles) {
     if (t.lane !== lane) continue;
@@ -54752,6 +54476,7 @@ function tileUnderBall(lane) {
   return null;
 }
 
+/** 找出 x 附近、当前这一排里最近的一块砖（用于坑沿的落地吸附保护） */
 function nearestTileWithin(x, maxDist) {
   let best = null, bestD = maxDist;
   for (const t of activeTiles) {
@@ -54764,143 +54489,94 @@ function nearestTileWithin(x, maxDist) {
 
 
 /* ==================================================================
- * 【模块 6】障碍：果冻方块（四季配色）+ 夏季水塘
+ * 【模块 6】障碍方块（撞到侧面 / 被阻挡 => 判定受伤）
+ * 用对象池复用，避免频繁创建销毁。
  * ================================================================== */
-const obstacles = [];
-const obPoolJelly = [], obPoolPond = [];
+const obstacles = [];                                     // 活动障碍：{ group, x, z, alive }
+const obstaclePool = [];
 
-const JELLY_GEO = new THREE.SphereGeometry(0.6, 16, 12);      // 圆润果冻本体
-const JELLY_CAP = new THREE.CylinderGeometry(0.52, 0.60, 0.16, 16);
-const JELLY_CORE = new THREE.SphereGeometry(0.22, 10, 8);
-const JELLY_TOP = new THREE.SphereGeometry(0.15, 8, 6);
-const POND_GEO = new THREE.CylinderGeometry(0.30, 0.30, 0.12, 20);
-const POND_RING = new THREE.TorusGeometry(0.30, 0.035, 6, 22);
+const OB_GEO_BODY = new THREE.BoxGeometry(CFG.OBSTACLE_W, CFG.OBSTACLE_H * 0.62, CFG.OBSTACLE_D);
+const OB_GEO_CAP  = new THREE.BoxGeometry(CFG.OBSTACLE_W * 1.06, CFG.OBSTACLE_H * 0.38, CFG.OBSTACLE_D * 1.06);
 
-const OB_NEAR = new THREE.Color(0xff5c6c);   // 近距离警示色
+/** 给 Z 轴上的障碍物按距离分红（近 = 红，远 = 淡橙）—— 一眼看出危险程度 */
+const OB_NEAR_COLOR = new THREE.Color('#ff5c6c');
+const OB_FAR_COLOR  = new THREE.Color('#ffb3a0');
 const _tmpCol = new THREE.Color();
+const OB_FADE_START = -42, OB_FADE_END = -6;              // 红→淡色的距离区间
 
-function acquireObstacle(type) {
-  const pool = type === 'pond' ? obPoolPond : obPoolJelly;
-  let g = pool.pop();
+/** 从对象池取出一个障碍方块（两层方块叠成小箱子造型） */
+function acquireObstacle() {
+  let g = obstaclePool.pop();
   if (!g) {
+    /* 每个障碍单独持有材质，才能按距离单独染色 */
     g = new THREE.Group();
-    if (type === 'pond') {
-      const water = new THREE.Mesh(POND_GEO, new THREE.MeshStandardMaterial({
-        color: 0x63c7ef, transparent: true, opacity: 0.78, roughness: 0.1, metalness: 0.2,
-        emissive: 0x1c7fa8, emissiveIntensity: 0.25
-      }));
-      water.position.y = 0.07;
-      const ring = new THREE.Mesh(POND_RING, new THREE.MeshStandardMaterial({ color: 0xbfeee0, roughness: 0.6 }));
-      ring.rotation.x = Math.PI / 2;
-      ring.position.y = 0.06;
-      g.add(water, ring);
-      g.userData.parts = [water];
-    } else {
-      /* 果冻方块：半透明本体 + 发光内核 + 亮顶盖 + 季节小点缀 */
-      const body = new THREE.Mesh(JELLY_GEO, new THREE.MeshStandardMaterial({
-        color: 0xff9ec4, transparent: true, opacity: 0.85,
-        roughness: 0.16, metalness: 0.0, emissive: 0xff6fae, emissiveIntensity: 0.22
-      }));
-      const kx = CFG.OBSTACLE_W / 1.2, ky = CFG.OBSTACLE_H * 0.62 / 1.2, kz = CFG.OBSTACLE_D / 1.2;
-      body.scale.set(kx, ky, kz);
-      body.position.y = CFG.OBSTACLE_H * 0.34;
-      body.castShadow = body.receiveShadow = true;
-      const core = new THREE.Mesh(JELLY_CORE, new THREE.MeshStandardMaterial({
-        color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5, transparent: true, opacity: 0.75
-      }));
-      core.position.y = CFG.OBSTACLE_H * 0.34;
-      const cap = new THREE.Mesh(JELLY_CAP, new THREE.MeshStandardMaterial({
-        color: 0xffe0ee, roughness: 0.3, emissive: 0xffffff, emissiveIntensity: 0.12
-      }));
-      cap.position.y = CFG.OBSTACLE_H * 0.66;
-      cap.scale.set(kx * 0.95, 1, kz * 0.95);   // 顶盖跟随障碍宽度，不会超出车道
-      cap.castShadow = true;
-      const top = new THREE.Mesh(JELLY_TOP, new THREE.MeshStandardMaterial({
-        color: 0xffb7d5, roughness: 0.35, emissive: 0xffb7d5, emissiveIntensity: 0.3
-      }));
-      top.position.y = CFG.OBSTACLE_H * 0.82;
-      top.scale.setScalar(0.7);
-      g.add(body, core, cap, top);
-      g.userData.parts = [body, cap, top];
-      g.userData.core = core;
-    }
-    g.userData.type = type;
+    const body = new THREE.Mesh(OB_GEO_BODY, new THREE.MeshLambertMaterial({ color: OB_NEAR_COLOR.clone() }));
+    body.position.y = CFG.OBSTACLE_H * 0.31;
+    body.castShadow = body.receiveShadow = true;
+    const cap = new THREE.Mesh(OB_GEO_CAP, new THREE.MeshLambertMaterial({ color: CFG.COLOR.OBSTACLE_TOP }));
+    cap.position.y = CFG.OBSTACLE_H * 0.81;
+    cap.castShadow = cap.receiveShadow = true;
+    g.userData.body = body;
+    g.add(body, cap);
   }
   g.visible = true;
   scene.add(g);
   return g;
 }
 
-/**
- * @param {number} side  -1 = 贴车道左边，1 = 贴车道右边，0 = 随机
- * 障碍一律不摆在车道正中间：贴边放，玩家往另一边靠就能擦过去。
- */
-function spawnObstacle(lane, z, side = 0) {
-  const type = (VIEW.pond > 0.5 && Math.random() < CFG.POND_CHANCE) ? 'pond' : 'jelly';
-  const g = acquireObstacle(type);
-  const s = side !== 0 ? side : (Math.random() < 0.5 ? -1 : 1);
-  const x = LANE_X[lane] + CFG.OBSTACLE_OFFSET * s;
-  g.position.set(x, 0, z);
-  const h = type === 'pond' ? CFG.POND_H : CFG.OBSTACLE_H;
-  obstacles.push({ group: g, x, z0: z, z, alive: true, type, h, bob: Math.random() * 6 });
+/** 在指定车道生成一个障碍方块 */
+function spawnObstacle(lane, z) {
+  const g = acquireObstacle();
+  g.position.set(LANE_X[lane], 0, z);
+  obstacles.push({ group: g, x: LANE_X[lane], z0: z, z, alive: true });
 }
 
+/** 回收障碍方块 */
 function releaseObstacle(o) {
   o.group.visible = false;
   scene.remove(o.group);
-  (o.type === 'pond' ? obPoolPond : obPoolJelly).push(o.group);
+  obstaclePool.push(o.group);
 }
 
-function updateObstacles(dt, t) {
+/** 每帧推进障碍位置（同时按距离染色，越近越红）。位置同样用 z0 + travel 重算。 */
+function updateObstacles() {
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const o = obstacles[i];
     o.z = o.z0 + game.travel;
     o.group.position.z = o.z;
 
-    /* 距离染色：远处偏季节色（温和），近处混入警示红 */
-    const k = THREE.MathUtils.clamp((o.z + 42) / 36, 0, 1);
-    const parts = o.group.userData.parts;
-    if (o.type === 'jelly') {
-      const body = parts[0], cap = parts[1], top = parts[2];
-      body.material.color.copy(_tmpCol.copy(VIEW.obBody).lerp(OB_NEAR, k * 0.65));
-      body.material.emissive.copy(VIEW.obGlow);
-      cap.material.color.copy(_tmpCol.copy(VIEW.obCap).lerp(OB_NEAR, k * 0.25));
-      top.material.color.copy(VIEW.accent);
-      top.material.emissive.copy(VIEW.accent);
-      /* 果冻呼吸感：轻微上下浮动 + 挤压 */
-      o.bob += dt;
-      const s = 1 + Math.sin(o.bob * 2.4) * 0.05;
-      body.scale.y = CFG.OBSTACLE_H * 0.62 / 1.2 * (2 - s);
-      body.scale.x = CFG.OBSTACLE_W / 1.2 * s;
-      o.group.userData.core.material.emissiveIntensity = 0.35 + Math.sin(o.bob * 3) * 0.15;
-    } else {
-      /* 水塘：轻微波动 */
-      parts[0].scale.setScalar(1 + Math.sin(t * 2.2 + o.z) * 0.04);
-    }
+    /* 距离染色：远处是淡橙色的「预警」，逼近时变成刺眼的红 */
+    const k = THREE.MathUtils.clamp((o.z - OB_FADE_START) / (OB_FADE_END - OB_FADE_START), 0, 1);
+    o.group.userData.body.material.color.copy(_tmpCol.copy(OB_FAR_COLOR).lerp(OB_NEAR_COLOR, k));
 
-    if (o.z > CFG.RECYCLE_Z || !o.alive) { obstacles.splice(i, 1); releaseObstacle(o); }
+    if (o.z > CFG.RECYCLE_Z || !o.alive) {
+      obstacles.splice(i, 1);
+      releaseObstacle(o);
+    }
   }
 }
 
 
 /* ==================================================================
- * 【模块 7】金币
+ * 【模块 7】金币（从天上掉落，接到则分数 +1）
  * ================================================================== */
-const coins = [];
+const coins = [];                                         // 活动金币：{ group, x, y, z, landed }
 const coinPool = [];
+
 const COIN_GEO = new THREE.CylinderGeometry(CFG.COIN_RADIUS, CFG.COIN_RADIUS, CFG.COIN_THICK, 20);
 const COIN_MAT = new THREE.MeshStandardMaterial({
-  color: 0xffd23f, emissive: 0xf0a52b, emissiveIntensity: 0.35, metalness: 0.35, roughness: 0.32
+  color: CFG.COLOR.COIN, emissive: new THREE.Color(CFG.COLOR.COIN_EDGE),
+  emissiveIntensity: 0.35, metalness: 0.35, roughness: 0.32
 });
 const COIN_RING_GEO = new THREE.TorusGeometry(CFG.COIN_RADIUS * 0.9, 0.05, 6, 18);
-const COIN_RING_MAT = new THREE.MeshStandardMaterial({ color: 0xf0a52b, metalness: 0.3, roughness: 0.45 });
+const COIN_RING_MAT = new THREE.MeshStandardMaterial({ color: CFG.COLOR.COIN_EDGE, metalness: 0.3, roughness: 0.45 });
 
 function acquireCoin() {
   let g = coinPool.pop();
   if (!g) {
     g = new THREE.Group();
     const disc = new THREE.Mesh(COIN_GEO, COIN_MAT);
-    disc.rotation.x = Math.PI / 2;
+    disc.rotation.x = Math.PI / 2;                        // 立起来，正面朝向相机
     disc.castShadow = true;
     const ring = new THREE.Mesh(COIN_RING_GEO, COIN_RING_MAT);
     g.add(disc, ring);
@@ -54909,18 +54585,27 @@ function acquireCoin() {
   scene.add(g);
   return g;
 }
+
+/** 在指定车道生成一枚金币，它会从天上砸下来 */
 function spawnCoin(lane, z) {
   const g = acquireCoin();
   g.position.set(LANE_X[lane], CFG.COIN_START_Y, z);
+  g.rotation.y = Math.random() * Math.PI;
   coins.push({ group: g, x: LANE_X[lane], y: CFG.COIN_START_Y, z0: z, z, landed: false });
 }
-function releaseCoin(c) { c.group.visible = false; scene.remove(c.group); coinPool.push(c.group); }
 
+function releaseCoin(c) {
+  c.group.visible = false;
+  scene.remove(c.group);
+  coinPool.push(c.group);
+}
+
+/** 金币：下落 + 随世界后移 + 自转 */
 function updateCoins(dt) {
   for (let i = coins.length - 1; i >= 0; i--) {
     const c = coins[i];
     c.z = c.z0 + game.travel;
-    if (!c.landed) {
+    if (!c.landed) {                                      // 从天上掉落阶段
       c.y -= CFG.COIN_FALL_SPEED * dt;
       if (c.y <= CFG.COIN_REST_Y) { c.y = CFG.COIN_REST_Y; c.landed = true; }
     }
@@ -54932,255 +54617,154 @@ function updateCoins(dt) {
 
 
 /* ==================================================================
- * 【模块 8】玩家：小熊
- * 优先加载 bear.glb；加载失败则用球体拼一只"备用小熊"，保证游戏一定能玩
+ * 【模块 8】玩家：蓝色圆球
  * ================================================================== */
 const playerGroup = new THREE.Group();
-playerGroup.position.set(0, CFG.PLAYER_RADIUS, 0);
+playerGroup.position.set(0, CFG.BALL_RADIUS, 0);
 scene.add(playerGroup);
 
-const bearHolder = new THREE.Group();      // 模型单独一层，方便做挤压/倾斜动画
-playerGroup.add(bearHolder);
-
-let bearReady = false;
-
-/** 用基础几何体拼一只可爱小熊（兜底方案） */
-function buildFallbackBear() {
-  const g = new THREE.Group();
-  const fur = new THREE.MeshStandardMaterial({ color: 0xd9a066, roughness: 0.75, metalness: 0.02 });
-  const cream = new THREE.MeshStandardMaterial({ color: 0xf6e3c8, roughness: 0.8 });
-  const dark = new THREE.MeshStandardMaterial({ color: 0x3b2b20, roughness: 0.6 });
-
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.40, 16, 14), fur);
-  body.scale.set(1, 1.05, 0.92); body.position.y = 0.42;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.30, 16, 14), fur);
-  head.position.y = 0.86;
-  const earL = new THREE.Mesh(new THREE.SphereGeometry(0.11, 10, 8), fur);
-  earL.position.set(-0.23, 1.06, 0);
-  const earR = earL.clone(); earR.position.x = 0.23;
-  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 8), cream);
-  muzzle.position.set(0, 0.80, 0.24); muzzle.scale.set(1.1, 0.85, 0.8);
-  const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), dark);
-  nose.position.set(0, 0.82, 0.35);
-  const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), dark);
-  eyeL.position.set(-0.11, 0.92, 0.26);
-  const eyeR = eyeL.clone(); eyeR.position.x = 0.11;
-  const armL = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), fur);
-  armL.position.set(-0.38, 0.52, 0.05); armL.scale.set(0.9, 1.2, 0.9);
-  const armR = armL.clone(); armR.position.x = 0.38;
-  const legL = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), fur);
-  legL.position.set(-0.19, 0.13, 0.02); legL.scale.set(1, 0.85, 1.15);
-  const legR = legL.clone(); legR.position.x = 0.19;
-  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 6), cream);
-  tail.position.set(0, 0.40, -0.36);
-
-  for (const m of g.children) { m.castShadow = true; }
-  g.add(body, head, earL, earR, muzzle, nose, eyeL, eyeR, armL, armR, legL, legR, tail);
-  return g;
-}
-
-/** 极简 GLB 解析：只处理本模型用到的单网格 + 单贴图，避免再引入额外加载库 */
-function parseGLB(arrayBuffer) {
-  const dv = new DataView(arrayBuffer);
-  if (dv.getUint32(0, true) !== 0x46546c67) throw new Error('不是合法的 glb 文件');
-  let off = 12, json = null, bin = null;
-  while (off + 8 <= arrayBuffer.byteLength) {
-    const len = dv.getUint32(off, true);
-    const type = dv.getUint32(off + 4, true);
-    const start = off + 8;
-    if (type === 0x4e4f534a) json = JSON.parse(new TextDecoder().decode(new Uint8Array(arrayBuffer, start, len)));
-    else if (type === 0x004e4942) bin = new Uint8Array(arrayBuffer, start, len);
-    off = start + len + ((4 - (len % 4)) % 4);
+/* 小球贴图：蓝底 + 白色圆点，让滚动旋转清晰可见 */
+const ballTex = (function buildBallTexture() {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, S);
+  g.addColorStop(0, CFG.COLOR.BALL_LIGHT);
+  g.addColorStop(1, CFG.COLOR.BALL);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = CFG.COLOR.BALL_DOT;
+  for (let i = 0; i < 16; i++) {
+    ctx.beginPath();
+    ctx.ellipse(Math.random() * S, Math.random() * S,
+      8 + Math.random() * 16, 6 + Math.random() * 12, Math.random() * 3, 0, Math.PI * 2);
+    ctx.fill();
   }
-  if (!json || !bin) throw new Error('glb 缺少数据块');
-
-  const CTOR = { 5120: Int8Array, 5121: Uint8Array, 5122: Int16Array, 5123: Uint16Array, 5125: Uint32Array, 5126: Float32Array };
-  const COMP = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
-  function readAcc(idx) {
-    const acc = json.accessors[idx];
-    const bv = json.bufferViews[acc.bufferView];
-    const n = COMP[acc.type];
-    const Ctor = CTOR[acc.componentType];
-    const byteOffset = (bv.byteOffset || 0) + (acc.byteOffset || 0);
-    return new Ctor(bin.buffer, bin.byteOffset + byteOffset, acc.count * n);
-  }
-
-  const prim = json.meshes[0].primitives[0];
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(readAcc(prim.attributes.POSITION)), 3));
-  if (prim.attributes.NORMAL) geo.setAttribute('normal', new THREE.BufferAttribute(new Float32Array(readAcc(prim.attributes.NORMAL)), 3));
-  if (prim.attributes.TEXCOORD_0) geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(readAcc(prim.attributes.TEXCOORD_0)), 2));
-  if (prim.indices !== undefined) geo.setIndex(new THREE.BufferAttribute(new Uint32Array(readAcc(prim.indices)), 1));
-
-  /* 应用节点变换（Blender 导出的 Z-up 旋转等） */
-  const node = (json.nodes || []).find(n => n.mesh !== undefined) || {};
-  const m = new THREE.Matrix4();
-  const t = node.translation || [0, 0, 0];
-  const q = node.rotation || [0, 0, 0, 1];
-  const s = node.scale || [1, 1, 1];
-  m.compose(
-    new THREE.Vector3(t[0], t[1], t[2]),
-    new THREE.Quaternion(q[0], q[1], q[2], q[3]),
-    new THREE.Vector3(s[0], s[1], s[2])
-  );
-  geo.applyMatrix4(m);
-
-  /* 贴图（取第一张 baseColorTexture） */
-  let tex = null;
-  const mat = (json.materials || [])[prim.material || 0] || {};
-  const texIdx = mat.pbrMetallicRoughness && mat.pbrMetallicRoughness.baseColorTexture
-    ? mat.pbrMetallicRoughness.baseColorTexture.index : (mat.baseColorTexture ? mat.baseColorTexture.index : null);
-  if (texIdx !== null && texIdx !== undefined) {
-    const imgIdx = json.textures[texIdx].source !== undefined ? json.textures[texIdx].source : texIdx;
-    const img = json.images[imgIdx];
-    const bv = json.bufferViews[img.bufferView];
-    const bytes = new Uint8Array(bin.buffer, bin.byteOffset + (bv.byteOffset || 0), bv.byteLength);
-    const blob = new Blob([bytes.slice()], { type: img.mimeType || 'image/png' });
-    tex = new THREE.Texture();
-    tex.image = new Image();
-    tex.image.onload = () => { tex.needsUpdate = true; };
-    tex.image.src = URL.createObjectURL(blob);
-    tex.colorSpace = THREE.SRGBColorSpace;
-  }
-  return { geo, tex };
-}
-
-function fitBear(group) {
-  const box = new THREE.Box3().setFromObject(group);
-  const size = new THREE.Vector3(); box.getSize(size);
-  const center = new THREE.Vector3(); box.getCenter(center);
-  const scale = CFG.BEAR_HEIGHT / Math.max(size.y, 0.0001);
-  group.scale.setScalar(scale);
-  group.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
-}
-
-function setBear(obj) {
-  bearHolder.add(obj);
-  bearReady = true;
-}
-
-/* 先放备用小熊，保证立刻能玩；GLB 到位后替换 */
-setBear(buildFallbackBear());
-
-(function loadBear() {
-  fetch(CFG.MODEL_URL).then(r => {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.arrayBuffer();
-  }).then(buf => {
-    const { geo, tex } = parseGLB(buf);
-    const mat = new THREE.MeshStandardMaterial({
-      map: tex || null,
-      color: tex ? 0xffffff : 0xd9a066,
-      roughness: 0.72, metalness: 0.03
-    });
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    const wrap = new THREE.Group();
-    wrap.add(mesh);
-    fitBear(wrap);
-    bearHolder.remove(bearHolder.children[0]);
-    setBear(wrap);
-  }).catch(err => {
-    console.warn('小熊模型加载失败，使用备用小熊：', err);
-  });
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 })();
 
-/* 落地假阴影 */
+const ballMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(CFG.BALL_RADIUS, 32, 24),
+  new THREE.MeshStandardMaterial({
+    map: ballTex,
+    emissive: new THREE.Color(CFG.COLOR.BALL_GLOW),  // 自发光让蓝色更醒目
+    emissiveIntensity: 0.28,
+    roughness: 0.34, metalness: 0.05, transparent: true, opacity: 1
+  })
+);
+ballMesh.castShadow = ballMesh.receiveShadow = true;
+playerGroup.add(ballMesh);
+
+/* 小球正下方的柔和假阴影（腾空时也能看到落点） */
 const blobShadow = new THREE.Mesh(
-  new THREE.CircleGeometry(CFG.PLAYER_RADIUS * 1.15, 24),
-  new THREE.MeshBasicMaterial({ color: 0x2b6ea8, transparent: true, opacity: 0.18, depthWrite: false })
+  new THREE.CircleGeometry(CFG.BALL_RADIUS * 1.15, 24),
+  new THREE.MeshBasicMaterial({ color: CFG.COLOR.SHADOW, transparent: true, opacity: 0.18, depthWrite: false })
 );
 blobShadow.rotation.x = -Math.PI / 2;
 blobShadow.position.y = 0.02;
 scene.add(blobShadow);
 
-/* 保护罩 */
+/* 保护罩：一个略大的半透明球壳，只在新手保护期显示 */
 const shieldMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(CFG.PLAYER_RADIUS * 1.32, 24, 18),
-  new THREE.MeshBasicMaterial({ color: 0x8fd4ff, transparent: true, opacity: 0.30, side: THREE.BackSide, depthWrite: false })
+  new THREE.SphereGeometry(CFG.BALL_RADIUS * 1.32, 24, 18),
+  new THREE.MeshBasicMaterial({
+    color: 0x8fd4ff, transparent: true, opacity: 0.30,
+    side: THREE.BackSide, depthWrite: false
+  })
 );
 shieldMesh.visible = false;
 playerGroup.add(shieldMesh);
 
-/* 闪电模型：加速时在小熊头顶旋转 */
-const boltMesh = (function buildBolt() {
-  const s = new THREE.Shape();
-  s.moveTo(0.10, 0.62); s.lineTo(-0.22, 0.06); s.lineTo(-0.02, 0.06);
-  s.lineTo(-0.14, -0.62); s.lineTo(0.24, 0.02); s.lineTo(0.02, 0.02);
-  s.lineTo(0.16, 0.62); s.closePath();
-  const geo = new THREE.ExtrudeGeometry(s, { depth: 0.10, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 1 });
-  geo.center();
-  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
-    color: 0xffe14d, emissive: 0xffb703, emissiveIntensity: 0.85, roughness: 0.25, metalness: 0.1
-  }));
-  m.scale.setScalar(0.9);
-  m.visible = false;
-  return m;
-})();
-playerGroup.add(boltMesh);
-
 
 /* ==================================================================
- * 【模块 9】游戏状态机 / HUD / 弹窗 / 闪电加速
+ * 【模块 9】游戏状态机 / HUD / 弹窗
+ *   ready   等待开始（显示开始弹窗）
+ *   intro   小球从天上快速落下
+ *   playing 正常游戏（受伤后进入无敌帧）
+ *   over    游戏结束
  * ================================================================== */
 const STATE = { READY: 'ready', COUNTDOWN: 'countdown', INTRO: 'intro', PLAYING: 'playing', FALLING: 'falling', OVER: 'over' };
 
 const game = {
   state: STATE.READY,
-  score: 0, lives: CFG.START_LIVES, best: 0,
-  speed: CFG.BASE_SPEED, speedMul: 1, elapsed: 0,
-  ballX: 0, ballY: CFG.PLAYER_RADIUS, ballVY: 0,
-  grounded: true, jumpHeld: 0, jumpsUsed: 0, coyote: 0,
-  squash: 0, invincible: 0, blink: 0, travel: 0,
-  countdown: 0, protect: 0, landLock: 0, timeScale: 1,
-  slipVX: 0,          // 冰面打滑的横向惯性
-  bolts: 0,           // 存了几次闪电加速
-  boost: 0,           // 加速剩余时间
-  footAcc: 0
+  score: 0,
+  lives: CFG.START_LIVES,
+  best: 0,
+  speed: CFG.BASE_SPEED,
+  speedMul: 1,           // 本局难度倍率（可由开始弹窗选择：轻松 / 标准 / 挑战）
+  elapsed: 0,            // 本局已进行时长（驱动速度曲线）
+  ballX: 0,              // 小球横向位置
+  ballY: CFG.BALL_RADIUS,
+  ballVY: 0,             // 小球垂直速度
+  grounded: true,        // 是否站在方块上
+  jumpHeld: 0,           // 本次跳跃已按住空格的时间
+  jumpsUsed: 0,          // 本次离地已用的跳跃次数（落地清零）
+  coyote: 0,             // 离开边缘后的宽容起跳计时
+  squash: 0,             // 落地压扁动画进度
+  spinning: 0,           // 空中翻转进度
+  invincible: 0,         // 剩余无敌时间
+  blink: 0,              // 无敌闪烁计时
+  distanceAcc: 0,        // 生成用地砖累计距离（旧字段，保留兼容）
+  travel: 0,             // 本局已前进的总距离（决定每排生成位置）
+  countdown: 0,          // 开始前的倒数读秒
+  protect: 0,            // 新手保护剩余时间：期间完全免疫（障碍不扣血、坑不会掉）
+  landLock: 0,           // 落地锁定时间：期间不做任何吸附/传送
+  lastLane: 2,           // 命中的车道（用于判定脚下有没有砖）
+  timeScale: 1           // 时间倍速（仅调试/自动化测试使用，正常游玩保持 1）
 };
 
-try { game.best = Number(localStorage.getItem('bearrun_best') || 0) || 0; } catch (e) { game.best = 0; }
+try { game.best = Number(localStorage.getItem('rollingsky_best') || 0) || 0; } catch (e) { game.best = 0; }
 
-/* ---------- DOM ---------- */
+/* ---------- DOM 引用 ---------- */
 const elScore    = document.getElementById('scoreValue');
 const elLives    = document.getElementById('livesValue');
 const elSpeedBar = document.getElementById('speedBar');
 const elOverlay  = document.getElementById('overlay');
 const elCard     = document.getElementById('card');
 const elFlash    = document.getElementById('flash');
-const elBoltBtn  = document.getElementById('boltBtn');
-const elBoltCnt  = document.getElementById('boltCount');
-const elBoostWrap= document.getElementById('boostWrap');
-const elBoostBar = document.getElementById('boostBar');
-const elBoostFx  = document.getElementById('boostFx');
-const elSeasonName = document.getElementById('seasonName');
-const elSeasonIcon = document.getElementById('seasonIcon');
 
+/** 刷新左上角「分数 + 生命」 */
 function renderHUD() {
   elScore.textContent = game.score;
   let html = '';
   for (let i = 0; i < CFG.START_LIVES; i++) html += `<i class="heart${i < game.lives ? '' : ' lost'}"></i>`;
   elLives.innerHTML = html;
-  elBoltCnt.textContent = game.bolts;
-  elBoltBtn.classList.toggle('ready', game.bolts > 0 && game.boost <= 0 && game.state === STATE.PLAYING);
   updateSpeedBar();
 }
 
+/** 刷新速度条（每帧调用，只改宽度，避免重建 DOM） */
 function updateSpeedBar() {
+  /* 用全局硬上限归一化，这样挑战档的速度条也能正确涨到底而不会溢出 */
   const p = (game.speed - CFG.BASE_SPEED) / (CFG.MAX_SPEED_ABS - CFG.BASE_SPEED);
   elSpeedBar.style.width = Math.round(Math.max(0, Math.min(1, p)) * 100) + '%';
 }
 
-function updateSeasonTag() {
-  const { a, b, k } = seasonMix();
-  const cur = k > 0.5 ? b : a;
-  if (elSeasonName.textContent !== cur.name) {
-    elSeasonName.textContent = cur.name;
-    elSeasonIcon.textContent = cur.icon;
-  }
+/** 受伤：扣一条命 + 无敌帧 + 特效；生命归零则结束 */
+function takeDamage(obstacle, reason = '撞上障碍') {
+  if (game.invincible > 0 || game.protect > 0 || game.state !== STATE.PLAYING) return;
+
+  game.lives--;
+  game.invincible = CFG.INVINCIBLE_TIME;
+  game.speed = Math.max(CFG.BASE_SPEED * 0.6, game.speed * CFG.HURT_SLOWDOWN);
+  sfxHurt();
+
+  /* 特效：全屏红闪 + 生命心脉动 + 飘字提示 */
+  elFlash.classList.add('on');
+  setTimeout(() => elFlash.classList.remove('on'), 90);
+  const hearts = elLives.querySelectorAll('.heart');
+  if (hearts[game.lives]) hearts[game.lives].classList.add('pulse');
+  showToast(reason, 'bad');
+
+  /* 撞到的障碍立即消失，避免被连续判定 */
+  if (obstacle) obstacle.alive = false;
+
+  renderHUD();
+  if (game.lives <= 0) gameOver();
 }
 
+/** 屏幕中央的飘字提示（扣血 / 保护） */
 function showToast(text, kind = 'bad') {
   const el = document.createElement('div');
   el.className = 'toast' + (kind === 'bad' ? '' : ' ' + kind);
@@ -55189,114 +54773,117 @@ function showToast(text, kind = 'bad') {
   setTimeout(() => el.remove(), 900);
 }
 
-/** 使用一次闪电加速 */
-function tryBoost() {
-  if (game.bolts <= 0 || game.boost > 0 || game.state !== STATE.PLAYING) return;
-  game.bolts--;
-  game.boost = CFG.BOOST_TIME;
-  sfxBolt();
-  showToast('⚡ 加速！', 'bolt');
-  elBoostWrap.classList.add('on');
-  elBoostFx.classList.add('on');
-  renderHUD();
-}
-
-function endBoost() {
-  game.boost = 0;
-  elBoostWrap.classList.remove('on');
-  elBoostFx.classList.remove('on');
-  renderHUD();
-}
-
-function takeDamage(obstacle, reason = '撞上障碍') {
-  if (game.invincible > 0 || game.protect > 0 || game.state !== STATE.PLAYING) return;
-  if (game.boost > 0) { if (obstacle) obstacle.alive = false; return; }   // 加速期间直接撞碎障碍
-  game.lives--;
-  game.invincible = CFG.INVINCIBLE_TIME;
-  game.speed = Math.max(CFG.BASE_SPEED * 0.6, game.speed * CFG.HURT_SLOWDOWN);
-  sfxHurt();
-  elFlash.classList.add('on');
-  setTimeout(() => elFlash.classList.remove('on'), 90);
-  const hearts = elLives.querySelectorAll('.heart');
-  if (hearts[game.lives]) hearts[game.lives].classList.add('pulse');
-  showToast(reason, 'bad');
-  if (obstacle) obstacle.alive = false;
-  renderHUD();
-  if (game.lives <= 0) gameOver();
-}
-
+/** 开启一段新手保护：期间障碍与空洞都不会伤害小球 */
 function grantProtection() {
   game.protect = CFG.SPAWN_PROTECT;
-  shieldMesh.visible = true;
+  game.protectArmed = true;                                // 等保护结束再清空前方危险
+  showShield(true);
   showToast('保护中', 'good');
 }
 
+/** 保护罩的显隐（小球外围一圈淡蓝色半透明球壳） */
+function showShield(on) {
+  if (!shieldMesh) return;
+  shieldMesh.visible = on;
+}
+
+/**
+ * 坠落：小球从空洞掉下去。
+ * 生命 > 1 时，扣一条命后重新落回跑道（继续游戏）；生命归零则直接结算。
+ */
 function startFalling() {
   if (game.state !== STATE.PLAYING) return;
   game.lives--;
   renderHUD();
-  game.state = STATE.FALLING;
-  game.ballVY = -2;
-  elFlash.classList.add('on');
-  setTimeout(() => elFlash.classList.remove('on'), 120);
-  showToast('掉下去了！');
-  const hearts = elLives.querySelectorAll('.heart');
-  if (hearts[game.lives]) hearts[game.lives].classList.add('pulse');
-  setTimeout(() => game.lives > 0 ? respawn() : gameOver(), 640);
+
+  if (game.lives > 0) {
+    game.state = STATE.FALLING;
+    game.ballVY = -2;                                     // 先给一点下坠速度
+    elFlash.classList.add('on');
+    setTimeout(() => elFlash.classList.remove('on'), 120);
+    showToast('掉下去了！');
+    const hearts = elLives.querySelectorAll('.heart');
+    if (hearts[game.lives]) hearts[game.lives].classList.add('pulse');
+    setTimeout(() => respawn(), 620);                     // 落入云海后重新落回跑道
+  } else {
+    game.state = STATE.FALLING;
+    game.ballVY = -2;
+    showToast('掉下去了！');
+    setTimeout(() => gameOver(), 700);
+  }
 }
 
+/** 从空洞中重新落回最近一块安全地砖上方的空中 */
 function respawn() {
   if (game.state === STATE.OVER) return;
+  /* 找一块靠近当前位置、且确实存在的砖，回到它上方 */
   let target = null, bestDist = Infinity;
   for (const t of activeTiles) {
-    if (t.rise > 0.75 || t.z >= 0) continue;
+    if (t.rise > 0.75 || t.z >= 0) continue;              // 只找回已在脚下/稍前一点的砖
     const d = Math.abs(t.x - game.ballX) + Math.abs(t.z) * 0.4;
     if (d < bestDist) { bestDist = d; target = t; }
   }
   game.ballX = target ? target.x : 0;
-  game.ballY = 7;
+  game.ballY = 7;                                         // 从空中重新落回
   game.ballVY = 0;
   game.grounded = false;
   game.jumpsUsed = 0;
   game.invincible = 0;
   game.blink = 0;
-  game.slipVX = 0;
-  game.state = STATE.INTRO;
+  game.state = STATE.INTRO;                               // 复用开局的下坠逻辑
+  ballMesh.material.opacity = 1;
   blobShadow.visible = true;
+
+  /* 重生保护：保护罩期间不会再次被障碍或空洞伤害 */
   clearAhead();
   grantProtection();
 }
 
+/**
+ * 清空前方一段距离内的障碍与金币，并补满地砖。
+ * 用于保护期结束时，保证玩家面前是一段干净的跑道。
+ */
 function clearAhead() {
+  /* 1) 清掉前方所有障碍 */
   for (let i = obstacles.length - 1; i >= 0; i--) {
     const o = obstacles[i];
     if (o.z < 2) { obstacles.splice(i, 1); releaseObstacle(o); }
   }
-  const rows = CFG.SAFE_AFTER_PROTECT + 2;
+  /* 2) 把前方这一段里缺的砖补上（包括坑的位置）
+        注意：这里 z 是「屏幕坐标」，补砖要换算成「存档坐标」z - travel */
+  const rows = CFG.SAFE_AFTER_PROTECT + 2;                  // 安全排数（1 排 = 1.5 米）
   for (let r = 0; r < rows; r++) {
-    const z = -r * CFG.TILE_SIZE - game.travel;
+    const zScreen = -r * CFG.TILE_SIZE;
+    const z = zScreen - game.travel;                        // 换算成存档坐标
     for (let lane = 0; lane < CFG.LANE_COUNT; lane++) {
       const key = `${lane}:${Math.round(z / CFG.TILE_SIZE)}`;
       if (!tileMap.has(key)) addTile(lane, z);
     }
   }
+  /* 3) 结束当前坑，并让「即将生成」的那一段也保持干净 */
   hole = null;
   holeCooldown = CFG.HOLE_COOLDOWN;
   obstacleGap = CFG.OBSTACLE_GAP;
   safeDistance = Math.max(safeDistance, rows);
+  /* 4) 顺便清掉前方所有障碍 */
+  for (let i = obstacles.length - 1; i >= 0; i--) {
+    const o = obstacles[i];
+    if (o.z < 2) { obstacles.splice(i, 1); releaseObstacle(o); }
+  }
 }
 
+/** 游戏结束，展示结算弹窗 */
 function gameOver() {
   game.state = STATE.OVER;
   sfxOver();
   if (game.score > game.best) {
     game.best = game.score;
-    try { localStorage.setItem('bearrun_best', String(game.best)); } catch (e) {}
+    try { localStorage.setItem('rollingsky_best', String(game.best)); } catch (e) {}
   }
-  endBoost();
   showOverCard();
 }
 
+/** 清空场上所有动态物体（地砖 / 障碍 / 金币） */
 function clearWorld() {
   activeTiles.length = 0;
   tileMap.clear();
@@ -55307,44 +54894,50 @@ function clearWorld() {
   coins.length = 0;
 }
 
-const ROW_START = 1.5;
+/**
+ * 预铺开局赛道：
+ * 靠近玩家的 START_SAFE_DIST 距离内只铺地砖，不放障碍与金币，
+ * 保证开局有一段安全的加速跑道。
+ */
 function buildInitialWorld() {
   lastFreeLanes = ALL_LANES.slice();
   obstacleGap = 0;
+  /* 第 0 ~ N 排依次铺到视野尽头（排距严格 = TILE_SIZE） */
   const N = Math.ceil((ROW_START + CFG.VIEW_DISTANCE) / CFG.TILE_SIZE);
   for (let r = 0; r <= N; r++) {
     spawnRow(+(ROW_START - r * CFG.TILE_SIZE).toFixed(3), (-(ROW_START - r * CFG.TILE_SIZE)) > -CFG.START_SAFE_DIST);
   }
-  rowSpawned = N;
+  /* rowSpawned = 已生成的最大排号；之后每前进一块砖，就按「下一个排号」继续往外铺 */
+  rowSpawned = N;                     // 开局已铺到第 N 排
   game.travel = 0;
-  nextRowTravel = CFG.TILE_SIZE;
+  nextRowTravel = CFG.TILE_SIZE;                        // 再前进一块砖就补下一排
 }
 
+/** 开始 / 重新开始一局 */
 function restart() {
   clearWorld();
-  game.state = STATE.COUNTDOWN;
-  game.countdown = 3;
-  game.score = 0;
-  game.lives = CFG.START_LIVES;
-  game.speed = CFG.BASE_SPEED;
-  game.elapsed = 0;
-  game.ballX = 0;
-  game.ballY = CFG.PLAYER_START_Y;
-  game.ballVY = 0;
-  game.grounded = false;
-  game.jumpHeld = 0;
-  game.jumpsUsed = 0;
-  game.coyote = 0;
-  game.squash = 0;
-  game.invincible = 0;
-  game.blink = 0;
-  game.protect = 0;
-  game.landLock = 0;
+
+  game.state       = STATE.COUNTDOWN;                      // 先倒数 3-2-1，再下坠开场
+  game.countdown   = 3;
+  game.score       = 0;
+  game.lives       = CFG.START_LIVES;
+  game.speed       = CFG.BASE_SPEED;
+  game.elapsed     = 0;
+  game.ballX       = 0;
+  game.ballY       = CFG.BALL_START_Y;
+  game.ballVY      = 0;
+  game.grounded    = false;
+  game.jumpHeld    = 0;
+  game.jumpsUsed   = 0;
+  game.coyote      = 0;
+  game.squash      = 0;
+  game.spinning    = 0;
+  game.invincible  = 0;
+  game.protect     = 0;
+  game.landLock    = 0;
+  game.blink       = 0;
+  game.distanceAcc = 0;
   game.travel = 0;
-  game.slipVX = 0;
-  game.bolts = 0;
-  game.boost = 0;
-  game.footAcc = 0;
   rowSpawned = 0;
   nextRowTravel = 0;
   rowIndex = 0;
@@ -55352,16 +54945,14 @@ function restart() {
   holeCooldown = 0;
   obstacleGap = 0;
   safeDistance = 0;
-  seasonState.index = 0;
-  seasonState.k = 0;
-  seasonState.t = 0;
 
   playerGroup.position.set(0, game.ballY, 0);
   playerGroup.scale.set(1, 1, 1);
   playerGroup.visible = true;
+  ballMesh.visible = true;
+  ballMesh.material.opacity = 1;
+  ballMesh.rotation.set(0, 0, 0);
   blobShadow.visible = true;
-  shieldMesh.visible = false;
-  boltMesh.visible = false;
 
   input.mode = 'key';
   input.keyDir = 0;
@@ -55370,16 +54961,16 @@ function restart() {
   input.left = input.right = false;
   input.jump = false;
 
-  endBoost();
   buildInitialWorld();
-  updateSeasonBlend();
-  applySeasonVisual(0);
+
   elOverlay.classList.add('hidden');
   document.body.classList.add('show-cursor');
   showCountdown(3);
+  showShield(false);
   renderHUD();
 }
 
+/** 中央倒数数字（3 → 2 → 1 → GO!） */
 function showCountdown(n) {
   const el = document.createElement('div');
   el.className = 'countdown';
@@ -55388,23 +54979,24 @@ function showCountdown(n) {
   setTimeout(() => el.remove(), 800);
 }
 
+/* ---------- 弹窗：开始卡片 ---------- */
 function showStartCard() {
   elCard.innerHTML = `
-    <h1>小熊快跑</h1>
-    <div class="subtitle">四季滚动天空 · 3D 跑酷</div>
+    <h1>滚动天空</h1>
+    <div class="subtitle">蓝色小球 · 3D 空中跑酷</div>
     <div class="sectionTitle">操作方式</div>
     <div class="tips">
-      <span class="key">←</span><span class="key">→</span> &nbsp;左右移动（手机：滑动 / 点击）<br>
-      <span class="key">空格</span> &nbsp;跳跃（长按跳更高，可二段跳）<br>
-      <span class="key">F</span> &nbsp;释放 ⚡ 闪电加速（或点击左下角按钮）
+      <span class="key">←</span><span class="key">→</span> &nbsp;键盘左右移动<br>
+      <span class="key">空格</span> &nbsp;跳跃（长按跳更高）<br>
+      🖱 &nbsp;移动鼠标 —— 小球平滑跟随指针平移<br>
+      🖱 &nbsp;点击画面 —— 朝点击位置快速冲刺
     </div>
     <div class="sectionTitle">游戏规则</div>
     <div class="tips">
-      🪙 &nbsp;吃金币 <b>+1 分</b>；每满 <b>10 分</b> 获得一次 ⚡ 加速（5 秒）<br>
-      🍮 &nbsp;撞到果冻障碍 <b>失去一条生命</b>（跳起来就能越过）<br>
-      🕳 &nbsp;踩到缺口会 <b>掉下去</b>（同样扣一条生命）<br>
-      🍃 &nbsp;春夏秋冬会 <b>慢慢轮换</b>：冬天有冰面会打滑，夏天有水塘<br>
-      ⚡ &nbsp;加速期间可以直接撞碎障碍
+      🪙 &nbsp;吃掉落下的金币，每枚 <b>+1 分</b><br>
+      🟥 &nbsp;撞到障碍方块会 <b>失去一条生命</b>（跳起来就能越过）<br>
+      🕳 &nbsp;踩到没有方块的缺口会 <b>掉下去</b>（同样扣一条生命）<br>
+      ⚡ &nbsp;速度越来越快，撑得越久分数越高
     </div>
     <br>
     <div class="sectionTitle">难度</div>
@@ -55416,12 +55008,23 @@ function showStartCard() {
     <br>
     <button class="btn" id="startBtn">开始游戏</button>
   `;
-  bindDiffRow();
+  const row = elCard.querySelector('#diffRow');
+  row.querySelectorAll('.diffBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      row.querySelectorAll('.diffBtn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      game.speedMul = Number(btn.dataset.mul) || 1;
+    });
+  });
+  row.querySelectorAll('.diffBtn').forEach(b => {
+    b.classList.toggle('active', Math.abs(Number(b.dataset.mul) - game.speedMul) < 1e-6);
+  });
   elCard.querySelector('#startBtn').addEventListener('click', restart);
   elOverlay.classList.remove('hidden');
   document.body.classList.add('show-cursor');
 }
 
+/* ---------- 弹窗：结算卡片 ---------- */
 function showOverCard() {
   const isNewBest = game.score >= game.best && game.score > 0;
   elCard.innerHTML = `
@@ -55432,19 +55035,12 @@ function showOverCard() {
     <div class="sectionTitle">难度</div>
     <div class="diffRow" id="diffRow">
       <button class="diffBtn" data-mul="0.82">轻松</button>
-      <button class="diffBtn active" data-mul="1">标准</button>
+      <button class="diffBtn" data-mul="1">标准</button>
       <button class="diffBtn" data-mul="1.3">挑战</button>
     </div>
     <br>
     <button class="btn" id="againBtn">再来一次</button>
   `;
-  bindDiffRow();
-  elCard.querySelector('#againBtn').addEventListener('click', restart);
-  elOverlay.classList.remove('hidden');
-  document.body.classList.add('show-cursor');
-}
-
-function bindDiffRow() {
   const row = elCard.querySelector('#diffRow');
   row.querySelectorAll('.diffBtn').forEach(btn => {
     btn.classList.toggle('active', Math.abs(Number(btn.dataset.mul) - game.speedMul) < 1e-6);
@@ -55454,58 +55050,80 @@ function bindDiffRow() {
       game.speedMul = Number(btn.dataset.mul) || 1;
     });
   });
+  elCard.querySelector('#againBtn').addEventListener('click', restart);
+  elOverlay.classList.remove('hidden');
+  document.body.classList.add('show-cursor');
 }
 
 
 /* ==================================================================
  * 【模块 10】输入控制
+ *  （1）键盘 ← → 左右移动 + 空格跳跃
+ *  （2）鼠标移动跟随  （3）鼠标点击冲刺 / 右键跳跃
  * ================================================================== */
 const input = {
-  left: false, right: false, keyDir: 0,
-  mode: 'key', mouseTargetX: 0, clickTarget: null,
-  jump: false, jumpPressed: false, touching: false
+  left: false,
+  right: false,
+  keyDir: 0,           // -1 左 / 0 静止 / 1 右
+  mode: 'key',         // 当前生效的控制方式：'key' | 'mouse' | 'click'
+  mouseTargetX: 0,     // 鼠标控制的目标 X
+  clickTarget: null,   // 点击冲刺的目标 X
+  jump: false,         // 空格是否按住（用于长按跳更高）
+  jumpPressed: false,  // 本帧是否有「起跳请求」
+  touching: false
 };
 
+/* ---------- （1）键盘：← → 左右移动，空格跳跃 ---------- */
 window.addEventListener('keydown', (e) => {
   const k = e.key;
-  if (k === 'ArrowLeft' || k === 'a' || k === 'A') { input.left = true; input.mode = 'key'; e.preventDefault(); }
+
+  /* 方向键 */
+  if (k === 'ArrowLeft'  || k === 'a' || k === 'A') { input.left  = true; input.mode = 'key'; e.preventDefault(); }
   if (k === 'ArrowRight' || k === 'd' || k === 'D') { input.right = true; input.mode = 'key'; e.preventDefault(); }
+
+  /* 空格：跳跃（按住不放也只触发一次起跳，长按增加滞空） */
   if (k === ' ' || k === 'Spacebar') {
-    e.preventDefault();
+    e.preventDefault();                                   // 阻止页面滚动
     if (game.state === STATE.READY || game.state === STATE.OVER) { restart(); return; }
     input.jump = true;
-    if (!e.repeat) input.jumpPressed = true;
+    if (!e.repeat) input.jumpPressed = true;              // 只在刚按下时标记「起跳请求」
+    /* 兜底：gamepad/AI/合成事件可能不带 keyup，0.25 秒后自动放开，
+       避免「jump 一直为 true」导致起跳被抑制、以及长按滞空判定异常 */
     clearTimeout(input._jumpRelease);
     input._jumpRelease = setTimeout(() => { input.jump = false; }, 250);
   }
-  if ((k === 'f' || k === 'F' || k === 'Shift') && !e.repeat) tryBoost();
   if (k === 'Enter' && (game.state === STATE.READY || game.state === STATE.OVER)) restart();
 });
 window.addEventListener('keyup', (e) => {
   const k = e.key;
-  if (k === 'ArrowLeft' || k === 'a' || k === 'A') input.left = false;
+  if (k === 'ArrowLeft'  || k === 'a' || k === 'A') input.left  = false;
   if (k === 'ArrowRight' || k === 'd' || k === 'D') input.right = false;
   if (k === ' ' || k === 'Spacebar') { input.jump = false; clearTimeout(input._jumpRelease); }
 });
 
+/** 屏幕 X 坐标 → 赛道内的目标 X */
 function screenXToTrackX(clientX) {
-  const r = (clientX / window.innerWidth) * 2 - 1;
-  return THREE.MathUtils.clamp(r * (CFG.TRACK_HALF + 0.6), P_MIN_X, P_MAX_X);
+  const r = (clientX / window.innerWidth) * 2 - 1;         // 归一化到 -1 ~ 1
+  return THREE.MathUtils.clamp(r * (CFG.TRACK_HALF + 0.6), BALL_MIN_X, BALL_MAX_X);
 }
 
+/* ---------- （2）鼠标移动：小球平滑跟随 ---------- */
 window.addEventListener('mousemove', (e) => {
   input.mouseTargetX = screenXToTrackX(e.clientX);
   input.mode = 'mouse';
   input.clickTarget = null;
 });
+
+/* ---------- （3）鼠标点击：朝该位置冲刺；右键 = 跳跃 ---------- */
 renderer.domElement.addEventListener('pointerdown', (e) => {
   if (game.state !== STATE.PLAYING && game.state !== STATE.INTRO) return;
-  if (e.button === 2) { input.jumpPressed = true; input.jump = true; return; }
+  if (e.button === 2) { input.jumpPressed = true; input.jump = true; return; }  // 右键跳跃
   input.clickTarget = screenXToTrackX(e.clientX);
   input.mode = 'click';
 });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
+/* ---------- 触摸：按下冲刺；双指 / 快速上滑跳跃 ---------- */
 let touchStartY = 0;
 renderer.domElement.addEventListener('touchstart', (e) => {
   if (game.state !== STATE.PLAYING && game.state !== STATE.INTRO) return;
@@ -55517,46 +55135,82 @@ renderer.domElement.addEventListener('touchstart', (e) => {
 }, { passive: true });
 renderer.domElement.addEventListener('touchmove', (e) => {
   if (!input.touching) return;
-  if (touchStartY - e.touches[0].clientY > 60 && !input.jump) { input.jumpPressed = true; input.jump = true; }
+  /* 向上滑动超过 60px 视为跳跃 */
+  if (touchStartY - e.touches[0].clientY > 60 && !input.jump) {
+    input.jumpPressed = true; input.jump = true;
+  }
   input.mouseTargetX = screenXToTrackX(e.touches[0].clientX);
   input.mode = 'mouse';
   input.clickTarget = null;
 }, { passive: true });
-renderer.domElement.addEventListener('touchend', () => { input.touching = false; input.jump = false; }, { passive: true });
-
-elBoltBtn.addEventListener('click', tryBoost);
+renderer.domElement.addEventListener('touchend', () => {
+  input.touching = false;
+  input.jump = false;
+}, { passive: true });
 
 
 /* ==================================================================
  * 【模块 11】世界生成
+ * 一排 = 一个 TILE_SIZE 深度的横向切片，内容为：
+ *   ① 随机铺设地砖（缺的格子就是空洞，踩上去会坠落）
+ *   ② 随机缺口：连续 2~3 排的同一车道不铺砖，形成一个「深坑」，跳一下就过去
+ *   ③ 随机障碍方块（撞上扣命，跳起来可越过）
+ *   ④ 随机掉落金币（加分）
  * ================================================================== */
-let obstacleGap = 0, rowIndex = 0, lastFreeLanes = ALL_LANES.slice();
-let hole = null, holeCooldown = 0, safeDistance = 0;
-let rowSpawned = 0, nextRowTravel = 0;
+let obstacleGap = 0;               // 距离上一组障碍还差几排
+let rowIndex = 0;                  // 已生成的排数（用于开局保护）
+let lastFreeLanes = ALL_LANES.slice();  // 上一组障碍留下的安全车道（保证有路可走）
+let hole = null;                   // 当前正在挖的坑：{ lane, rows }
+let holeCooldown = 0;              // 坑之间的间隔排数（避免连续坑连成一片）
+let safeDistance = 0;              // 安全距离：这段时间内前方不再生成障碍/坑（保护结束后用）
+const ROW_START = 1.5;             // 第 0 排的 Z 坐标（取 TILE_SIZE 的整数倍，排号才对得齐）
+let rowSpawned = 0;                 // 已生成到第几排（排号连续递增，用于精确算出每排的 Z）
+let nextRowTravel = 0;             // 下一次补排所需的累计前进距离
 
+/**
+ * 挖一个坑：同一车道连续 1~2 排不铺砖。
+ * 上限 2 排（3 米）—— 一次跳跃就能跨过去。
+ */
 function startHole(lane) {
-  const maxRows = Math.min(CFG.HOLE_MAX_ROWS, CFG.LANE_COUNT);
-  hole = { lane, rows: 1 + ((Math.random() * maxRows) | 0) };
+  const maxRows = Math.min(CFG.HOLE_MAX_ROWS, CFG.LANE_COUNT);   // 硬上限：不超过 2 排
+  hole = { lane, rows: 1 + ((Math.random() * maxRows) | 0) };     // 1~maxRows 排
 }
 
+/**
+ * @param {number} z     该排的世界 Z 坐标
+ * @param {boolean} safe 安全排：地砖铺满，不放障碍、缺口与金币
+ */
 function spawnRow(z, safe = false) {
   rowIndex++;
-  const protectRows = game.protect > 0 ? Math.ceil((game.protect * game.speed) / CFG.TILE_SIZE) + 2 : 0;
+  const st = window.__spawnStats || (window.__spawnStats = { calls: 0, tileTries: 0, tileSkipCap: 0, tileSkipDup: 0, lastZ: 0, rowsHere: 0, recent: [] });
+  st.calls++; st.lastZ = +z.toFixed(2); st.rowsHere++;
+  if (st.recent.length < 400) st.recent.push(+(z / CFG.TILE_SIZE).toFixed(2));
+  /* 保护期内「不生成任何危险」：这段生成空间之后会滚到玩家脚下，
+     所以保护期也要转化成等量的安全排数，否则保护一结束就会撞上提前生成好的坑 */
+  const protectRows = game.protect > 0
+    ? Math.ceil((game.protect * game.speed) / CFG.TILE_SIZE) + 2
+    : 0;
   if (protectRows > 0) safeDistance = Math.max(safeDistance, protectRows);
+
+  /* 安全排：开局安全区 / 保护期 / 保护结束后的空档，整段只铺满砖、不放任何危险 */
   const isSafeRow = safe || safeDistance > 0;
   if (safeDistance > 0) safeDistance--;
 
+  /* ---------- ① 随机铺设地砖 ---------- */
   const dangerMax = Math.floor(CFG.LANE_COUNT / 2);
   const skipLanes = new Set();
+  /* 只有在「非安全排」才允许挖空；安全窗口里坑一律不生效 */
   if (hole && !isSafeRow) skipLanes.add(hole.lane);
 
   for (let lane = 0; lane < CFG.LANE_COUNT; lane++) {
-    if (isSafeRow) { addTile(lane, z); continue; }
+    if (isSafeRow) { addTile(lane, z); continue; }           // 安全排：整排铺满
     if (skipLanes.has(lane)) continue;
-    addTile(lane, z);
+    addTile(lane, z);                                        // 非坑的车道一律铺满，避免零散小洞
   }
+
   if (isSafeRow) return;
 
+  /* ---------- ② 推进 / 结束当前的坑，并决定是否开新坑 ---------- */
   if (hole) {
     hole.rows--;
     if (hole.rows <= 0) { hole = null; holeCooldown = CFG.HOLE_COOLDOWN; }
@@ -55567,25 +55221,18 @@ function spawnRow(z, safe = false) {
     startHole((Math.random() * CFG.LANE_COUNT) | 0);
   }
 
+  /* ---------- ③ 随机生成障碍方块（与洞同排时也不超过一半车道） ---------- */
   const occupied = [...skipLanes];
   const canPlace = !hole && obstacleGap <= 0 && game.protect <= 0 &&
                    rowIndex > CFG.OBSTACLE_MIN_ROW &&
                    Math.random() < CFG.OBSTACLE_CHANCE * game.speedMul;
+
   if (canPlace) {
-    /* 优先摆"成对障碍"：相邻两条车道各贴一边，中间留出一条斜着能穿过去的缝 */
-    if (Math.random() < CFG.GATE_CHANCE && CFG.LANE_COUNT >= 2) {
-      const a = (Math.random() * (CFG.LANE_COUNT - 1)) | 0;
-      const gapInMiddle = Math.random() < 0.5;         // true = 缝在中间；false = 缝在两侧
-      spawnObstacle(a, z, gapInMiddle ? -1 : 1);
-      spawnObstacle(a + 1, z, gapInMiddle ? 1 : -1);
-      occupied.push(a, a + 1);
-      lastFreeLanes = ALL_LANES.slice();               // 每条道都还留着半边，过得去
-      obstacleGap = CFG.OBSTACLE_GAP;
-      return;
-    }
-    const room = dangerMax - occupied.length;
+    const room = dangerMax - occupied.length;                 // 本排还能放几个障碍
     const count = Math.min(room, 1 + ((Math.random() * CFG.OBSTACLE_MAX) | 0));
+
     if (count > 0) {
+      /* 洗牌 + 校验：至少留一条空车道，且能从上一组的安全车道挪过去 */
       let picked = null;
       for (let attempt = 0; attempt < 16; attempt++) {
         const lanes = ALL_LANES.filter(l => !occupied.includes(l));
@@ -55598,21 +55245,22 @@ function spawnRow(z, safe = false) {
         if (free.some(l => lastFreeLanes.some(p => Math.abs(p - l) <= 1))) { picked = { chosen, free }; break; }
       }
       if (picked) {
-        /* 单排障碍：按行号左右交替贴边，形成左右穿插的"蛇形"节奏 */
-        const side = (rowIndex % 2 === 0) ? -1 : 1;
-        for (const lane of picked.chosen) { spawnObstacle(lane, z, side); occupied.push(lane); }
+        for (const lane of picked.chosen) { spawnObstacle(lane, z); occupied.push(lane); }
         lastFreeLanes = picked.free;
         obstacleGap = CFG.OBSTACLE_GAP;
       }
     }
-  } else if (obstacleGap > 0) obstacleGap--;
-  if (hole) lastFreeLanes = ALL_LANES.filter(l => !skipLanes.has(l));
+  } else if (obstacleGap > 0) {
+    obstacleGap--;
+  }
+  if (hole) lastFreeLanes = ALL_LANES.filter(l => !skipLanes.has(l));  // 坑后从可行车道继续
 
+  /* ---------- ④ 随机生成「从天上掉落」的金币（只落在安全的车道上） ---------- */
   if (!isSafeRow && occupied.length < dangerMax && Math.random() < CFG.COIN_CHANCE) {
     const free = ALL_LANES.filter(l => !occupied.includes(l));
     if (free.length) {
       const lane = free[(Math.random() * free.length) | 0];
-      const chain = Math.random() < CFG.COIN_CHAIN_RATE ? 3 : 1;
+      const chain = Math.random() < CFG.COIN_CHAIN_RATE ? 3 : 1;  // 有概率连出一串金币
       for (let k = 0; k < chain; k++) spawnCoin(lane, z - k * CFG.TILE_SIZE);
     }
   }
@@ -55621,20 +55269,24 @@ function spawnRow(z, safe = false) {
 
 /* ==================================================================
  * 【模块 12】碰撞检测
+ *  ① 障碍：小球与障碍在 X/Z 上重叠且高度不足  =>  扣命
+ *  ② 金币：与小球距离足够近  =>  拾取 +1 分
+ *  ③ 空洞：脚下该车道没有地砖  =>  坠落判死
  * ================================================================== */
-const P_HALF = CFG.PLAYER_RADIUS * CFG.HIT_SCALE;
+const BALL_HALF = CFG.BALL_RADIUS * CFG.BALL_HIT_SCALE;
 const OB_HALF_X = CFG.OBSTACLE_W / 2 - CFG.OBSTACLE_FORGIVE;
 const OB_HALF_Z = CFG.OBSTACLE_D / 2 - CFG.OBSTACLE_FORGIVE;
 
 function checkObstacleCollision() {
   if (game.state !== STATE.PLAYING) return;
+  /* 跳到障碍顶面以上就不会撞到 —— 但落地时必须已经越过障碍 */
+  if (game.ballY - CFG.BALL_RADIUS > CFG.OBSTACLE_H - 0.05) return;
+
   for (const o of obstacles) {
     if (!o.alive) continue;
-    if (game.ballY - CFG.PLAYER_RADIUS > o.h - 0.05) continue;         // 跳过障碍
-    if (Math.abs(o.x - game.ballX) < OB_HALF_X + P_HALF &&
-        Math.abs(o.z - 0)          < OB_HALF_Z + P_HALF) {
-      if (game.boost > 0) { o.alive = false; sfxSmash(); continue; }   // 加速撞碎
-      takeDamage(o, o.type === 'pond' ? '踩进水塘' : '撞上障碍');
+    if (Math.abs(o.x - game.ballX) < OB_HALF_X + BALL_HALF &&
+        Math.abs(o.z - 0)        < OB_HALF_Z + BALL_HALF) {
+      takeDamage(o, '撞上障碍');
       break;
     }
   }
@@ -55642,26 +55294,22 @@ function checkObstacleCollision() {
 
 function checkCoinCollision() {
   if (game.state !== STATE.PLAYING && game.state !== STATE.INTRO) return;
-  const reach = CFG.COIN_RADIUS + CFG.PLAYER_RADIUS * 0.9;
+  const reach = CFG.COIN_RADIUS + CFG.BALL_RADIUS * 0.9;
   for (let i = coins.length - 1; i >= 0; i--) {
     const c = coins[i];
     if (Math.abs(c.x - game.ballX) < reach &&
-        Math.abs(c.z - 0)          < reach &&
-        Math.abs(c.y - game.ballY) < CFG.PLAYER_RADIUS + 0.9) {
-      game.score++;
+        Math.abs(c.z - 0)        < reach &&
+        Math.abs(c.y - game.ballY) < CFG.BALL_RADIUS + 0.9) {
+      game.score++;                                       // 接到金币，分数 +1
       coins.splice(i, 1);
       releaseCoin(c);
       sfxCoin();
-      if (game.score % CFG.BOLT_PER_SCORE === 0 && game.bolts < CFG.BOLT_MAX) {
-        game.bolts++;
-        showToast('⚡ 获得加速！', 'bolt');
-        sfxBoltReady();
-      }
       renderHUD();
     }
   }
 }
 
+/** 找到小球脚下所在车道的编号（离哪个车道中心最近） */
 function laneOfBall() {
   let best = 0, bestD = Infinity;
   for (let i = 0; i < LANE_X.length; i++) {
@@ -55673,23 +55321,29 @@ function laneOfBall() {
 
 
 /* ==================================================================
- * 【模块 13】主循环
+ * 【模块 13】主循环：更新逻辑 → 渲染
  * ================================================================== */
 const clock = new THREE.Clock();
 let cameraShake = 0;
-let realTime = 0;
-let slipSfxAcc = 0;
+let realTime = 0;                                         // 真实累计时间（不受倍速影响，供动画取用）
 
+/** 小球操控 + 跳跃 + 空洞坠落 + 滚动旋转 */
 function updatePlayer(dt, speed) {
-  /* 保护罩 */
+  /* ===== 新手保护倒计时：结束时清空前方危险并收起保护罩 ===== */
   if (game.protect > 0) {
     game.protect -= dt;
-    if (game.protect <= 0) { game.protect = 0; shieldMesh.visible = false; clearAhead(); }
+    if (game.protect <= 0) {
+      game.protect = 0;
+      showShield(false);
+      clearAhead();                                       // 保护一结束，先把面前的坑和障碍清掉
+    }
   }
-  if (shieldMesh.visible) {
+  if (shieldMesh && shieldMesh.visible) {
+    /* 保护罩轻微呼吸 + 缓慢自转，让状态更醒目 */
     shieldMesh.rotation.y += dt * 0.9;
     shieldMesh.scale.setScalar(1 + Math.sin(realTime * 6) * 0.05);
     shieldMesh.material.opacity = 0.22 + Math.sin(realTime * 4) * 0.08;
+    /* 最后 PROTECT_VISUAL_LEAD 秒内逐渐变淡，提示「罩子要没了」 */
     const fadeFrom = CFG.PROTECT_VISUAL_LEAD;
     if (game.protect < fadeFrom) {
       const k = Math.max(0, game.protect / fadeFrom);
@@ -55698,76 +55352,71 @@ function updatePlayer(dt, speed) {
     }
   }
 
-  /* 加速倒计时 */
-  if (game.boost > 0) {
-    game.boost -= dt;
-    elBoostBar.style.width = Math.max(0, game.boost / CFG.BOOST_TIME * 100) + '%';
-    if (game.boost <= 0) endBoost();
-  }
-
-  /* 横向控制 */
+  /* ===== 横向控制：按当前生效的操作方式计算 ===== */
   input.keyDir = (input.right ? 1 : 0) - (input.left ? 1 : 0);
-  const lane = laneOfBall();
-  const under = tileUnderBall(lane);
-  const hasGround = !!under;
-  const onIce = !!(under && under.ice) && VIEW.ice > 0.4;
 
   if (game.state !== STATE.READY && game.state !== STATE.OVER) {
-    let move = 0;
     if (input.keyDir !== 0) {
+      /* (1) 键盘：恒速左右移动 */
       input.mode = 'key';
-      move = input.keyDir * CFG.KEY_SPEED * dt;
-      input.mouseTargetX = game.ballX;
+      game.ballX += input.keyDir * CFG.BALL_KEY_SPEED * dt;
+      input.mouseTargetX = game.ballX;                    // 同步鼠标目标，切换时不跳变
     } else if (input.mode === 'click' && input.clickTarget !== null) {
+      /* (3) 点击：朝目标点快速冲刺 */
       const diff = input.clickTarget - game.ballX;
-      const step = CFG.DASH_SPEED * dt;
-      move = Math.abs(diff) <= step ? diff : Math.sign(diff) * step;
-      if (Math.abs(diff) <= step) input.clickTarget = null;
+      const step = CFG.BALL_DASH_SPEED * dt;
+      if (Math.abs(diff) <= step) { game.ballX = input.clickTarget; input.clickTarget = null; }
+      else game.ballX += Math.sign(diff) * step;
       input.mouseTargetX = game.ballX;
     } else if (input.mode === 'mouse') {
-      const k = 1 - Math.exp(-CFG.FOLLOW * dt);
-      move = (input.mouseTargetX - game.ballX) * k;
+      /* (2) 鼠标：指数插值平滑跟随 */
+      const k = 1 - Math.exp(-CFG.BALL_FOLLOW * dt);
+      game.ballX += (input.mouseTargetX - game.ballX) * k;
     }
-    game.ballX += move;
-
-    /* 冰面打滑：横向惯性更强、摩擦更小，还会轻微飘 */
-    if (onIce) {
-      game.slipVX += move * CFG.ICE_SLIP * 6;
-      game.slipVX *= Math.exp(-1.1 * dt);
-      game.ballX += game.slipVX * dt + Math.sin(realTime * 3.1) * CFG.ICE_SLIP * 0.35 * dt;
-      slipSfxAcc += dt;
-      if (slipSfxAcc > 0.85) { slipSfxAcc = 0; sfxSlip(); }
-    } else {
-      game.slipVX *= Math.exp(-6 * dt);
-    }
-    game.ballX = THREE.MathUtils.clamp(game.ballX, P_MIN_X, P_MAX_X);
+    game.ballX = THREE.MathUtils.clamp(game.ballX, BALL_MIN_X, BALL_MAX_X);
   }
 
-  if (game.landLock > 0) game.landLock -= dt;
+  /* ===== 脚下有没有方块（空洞判定依据） ===== */
+  const lane = laneOfBall();
+  const hasGround = !!tileUnderBall(lane);
+  if (game.landLock > 0) game.landLock -= dt;                 // 落地保护倒计时
 
-  /* 垂直方向 */
+  /* ===== 垂直方向 ===== */
   if (game.state === STATE.INTRO) {
-    game.ballVY -= CFG.GRAVITY * dt;
+    /* 开场 / 重生：从天上快速坠下，踩到方块才停 */
+    game.ballVY -= CFG.BALL_GRAVITY * dt;
     game.ballY += game.ballVY * dt;
-    if (game.ballY <= CFG.PLAYER_RADIUS) {
-      game.ballY = CFG.PLAYER_RADIUS;
-      if (!hasGround) {
+    if (game.ballY <= CFG.BALL_RADIUS) {
+      game.ballY = CFG.BALL_RADIUS;
+      if (hasGround) {
+        game.ballVY = 0;
+        game.grounded = true;
+        game.jumpsUsed = 0;
+        game.squash = 1;                                  // 落地压扁回弹
+        game.state = STATE.PLAYING;
+        cameraShake = 0.24;
+        /* 刚落地这段时间内不做任何「吸附/传送」，让玩家自己掌控 */
+        game.landLock = CFG.LAND_NO_SNAP_TIME;
+        grantProtection();                                // 每条命的开局都会给一段保护罩
+      } else {
+        /* 落地点正下方没砖：把小球吸附到最近的一块砖上，不允许直接掉下去 */
         const near = nearestTileWithin(game.ballX, 3.0);
         if (near) game.ballX = near.x;
+        game.ballVY = 0;
+        game.grounded = true;
+        game.jumpsUsed = 0;
+        game.squash = 1;
+        game.state = STATE.PLAYING;
+        game.landLock = CFG.LAND_NO_SNAP_TIME;
+        grantProtection();
       }
-      game.ballVY = 0;
-      game.grounded = true;
-      game.jumpsUsed = 0;
-      game.squash = 1;
-      game.state = STATE.PLAYING;
-      cameraShake = 0.24;
-      game.landLock = CFG.LAND_NO_SNAP_TIME;
-      grantProtection();
     }
   } else if (game.state === STATE.PLAYING) {
+    /* 刚滚出边缘时给一点「土狼时间」，手感更宽容 */
     if (!hasGround && game.grounded) { game.grounded = false; game.coyote = CFG.COYOTE_TIME; }
     if (game.coyote > 0) game.coyote -= dt;
 
+    /* 按下空格 → 起跳（空中可再按一次，二段跳） */
     if (input.jumpPressed) {
       const canFirst = game.grounded || game.coyote > 0;
       const canSecond = !game.grounded && game.jumpsUsed < CFG.MAX_JUMPS;
@@ -55778,34 +55427,41 @@ function updatePlayer(dt, speed) {
         game.jumpHeld = 0;
         game.squash = 0;
         game.jumpsUsed = canFirst ? 1 : game.jumpsUsed + 1;
-        sfxJump(!canFirst);
+        if (canSecond) {
+          game.spinBoost = 1;                             // 二段跳时翻滚一下，视觉反馈
+          sfxJump(true);
+        } else sfxJump(false);
       }
     }
     input.jumpPressed = false;
 
     if (!game.grounded) {
+      /* 空中：重力 + 长按空格延长滞空 */
       let g = CFG.GRAVITY_JUMP;
       if (input.jump && game.ballVY > 0 && game.jumpHeld < CFG.JUMP_HOLD_MAX) {
-        g *= 0.55;
+        g *= 0.55;                                        // 按住时有一点「悬浮感」
         game.jumpHeld += dt;
       }
       game.ballVY -= g * dt;
       game.ballY += game.ballVY * dt;
-      if (game.ballVY <= 0 && game.ballY <= CFG.PLAYER_RADIUS && hasGround) {
-        game.ballY = CFG.PLAYER_RADIUS;
+
+      /* 下落时踩到方块 → 落地 */
+      if (game.ballVY <= 0 && game.ballY <= CFG.BALL_RADIUS && hasGround) {
+        game.ballY = CFG.BALL_RADIUS;
         game.ballVY = 0;
         game.grounded = true;
         game.squash = 1;
-        game.jumpsUsed = 0;
-        game.landLock = CFG.LAND_NO_SNAP_TIME;
+        game.jumpsUsed = 0;                               // 落地重置跳跃次数
+        game.landLock = CFG.LAND_NO_SNAP_TIME;            // 落地后短暂不吸附
         sfxLand();
       }
     }
 
-    if (!hasGround && game.ballY <= CFG.PLAYER_RADIUS + 0.02 && game.ballVY <= 0) {
+    /* 脚下是空洞、且已经落到跑道高度以下 → 坠落（保护期内不判死，直接补砖） */
+    if (!hasGround && game.ballY <= CFG.BALL_RADIUS + 0.02 && game.ballVY <= 0) {
       if (game.protect > 0) {
-        addTile(lane, 0 - game.travel);
-        game.ballY = CFG.PLAYER_RADIUS;
+        addTile(lane, 0 - game.travel);                   // 保护期：脚下瞬间补一块砖（换算成存档坐标）
+        game.ballY = CFG.BALL_RADIUS;
         game.ballVY = 0;
         game.grounded = true;
         game.jumpsUsed = 0;
@@ -55813,81 +55469,62 @@ function updatePlayer(dt, speed) {
         startFalling();
       }
     }
-
-    /* 脚步声：踩在地面上时规律轻响，音量高于 BGM */
-    if (game.grounded) {
-      game.footAcc += dt;
-      if (game.footAcc >= CFG.FOOT_STEP) { game.footAcc = 0; sfxStep(); }
-    }
   } else if (game.state === STATE.FALLING) {
-    game.ballVY -= CFG.GRAVITY * 0.9 * dt;
+    /* 坠落：小球一直往下掉进云海 */
+    game.ballVY -= CFG.BALL_GRAVITY * 0.9 * dt;
     game.ballY += game.ballVY * dt;
   }
 
-  /* 坑沿吸附 */
+  /* ===== 坑沿吸附：下落时离砖边很近会被轻推开（绝不传送进砖块） ===== */
   if (game.state === STATE.PLAYING && !hasGround && game.ballVY <= 0 && game.landLock <= 0) {
     const near = nearestTileWithin(game.ballX, 0.9);
-    if (near && Math.abs(near.x - game.ballX) < CFG.PLAYER_RADIUS * 0.55) {
+    if (near && Math.abs(near.x - game.ballX) < CFG.BALL_RADIUS * 0.55) {
+      /* 只做微小滑移把它放回砖面，避免「瞬间传送」的突兀感 */
       game.ballX += (near.x - game.ballX) * 0.5;
     }
   }
 
-  /* 挤压回弹 */
+  /* ===== 落地压扁回弹 ===== */
   if (game.squash > 0) game.squash = Math.max(0, game.squash - dt * 3.6);
   const sq = Math.sin(game.squash * Math.PI) * 0.32;
   playerGroup.scale.set(1 + sq * 0.7, 1 - sq, 1 + sq * 0.7);
 
-  /* 位置与小熊动画：跑步上下颠 + 转向侧倾 + 空中翻滚 */
+  /* ===== 应用位置与旋转 ===== */
   playerGroup.position.set(game.ballX, game.ballY, 0);
-  const bob = game.grounded ? Math.sin(realTime * 12) * 0.045 : 0;
-  bearHolder.position.y = bob;
-  bearHolder.rotation.z += ((-input.keyDir * 0.22) - bearHolder.rotation.z) * Math.min(1, dt * 8);
-  if (game.grounded) {
-    bearHolder.rotation.x += ((0.06 + Math.sin(realTime * 12) * 0.05) - bearHolder.rotation.x) * Math.min(1, dt * 8);
-    bearHolder.rotation.y += ((game.slipVX * 0.6) - bearHolder.rotation.y) * Math.min(1, dt * 8);
-  } else {
-    bearHolder.rotation.x -= dt * 5.5;
-  }
+  if (game.grounded) ballMesh.rotation.x -= (speed * dt) / CFG.BALL_RADIUS;  // 地面滚动
+  else ballMesh.rotation.x -= dt * 5.5;                                      // 空中翻滚
+  ballMesh.rotation.z += input.keyDir * dt * 2.4;                            // 横移侧倾
 
-  /* 加速时头顶闪电旋转 */
-  if (game.boost > 0) {
-    boltMesh.visible = true;
-    boltMesh.position.set(0, CFG.PLAYER_RADIUS + 1.15, 0);
-    boltMesh.rotation.y += dt * 6;
-    boltMesh.position.y += Math.sin(realTime * 8) * 0.04;
-  } else {
-    boltMesh.visible = false;
-  }
-
-  /* 假阴影 */
+  /* ===== 假阴影：只贴在方块顶面，悬在空洞上方时不投影 ===== */
   blobShadow.position.set(game.ballX, 0.02, 0);
-  const h = Math.max(0, game.ballY - CFG.PLAYER_RADIUS);
+  const h = Math.max(0, game.ballY - CFG.BALL_RADIUS);
   blobShadow.scale.setScalar(1 + h * 0.12);
   blobShadow.material.opacity = hasGround ? 0.20 / (1 + h * 0.55) : 0;
 
-  /* 无敌闪烁 */
+  /* ===== 无敌帧：小球半透明闪烁 ===== */
   if (game.invincible > 0) {
     game.invincible -= dt;
     game.blink += dt;
-    const vis = Math.floor(game.blink * 14) % 2 === 0;
-    bearHolder.visible = vis;
-    if (game.invincible <= 0) { game.invincible = 0; bearHolder.visible = true; }
+    ballMesh.material.opacity = Math.floor(game.blink * 14) % 2 === 0 ? 1 : 0.28;
+    if (game.invincible <= 0) { game.invincible = 0; ballMesh.material.opacity = 1; }
   }
 }
 
 function animate() {
   requestAnimationFrame(animate);
-  const rawDt = Math.min(clock.getDelta(), 0.05);
+  const rawDt = Math.min(clock.getDelta(), 0.05);         // 限制单帧步长，防掉帧穿透
+  /* 测试/调试可用 __game.timeScale 加速时间（默认 1，正常游玩无影响） */
   const dt = rawDt * (game.timeScale || 1);
   realTime += rawDt;
 
+  /* ===== 开始前的 3-2-1 倒数 ===== */
   if (game.state === STATE.COUNTDOWN) {
-    game.countdown -= rawDt;
+    game.countdown -= rawDt;                              // 倒计时按真实时间，不受倍速影响
     const n = Math.ceil(game.countdown);
     if (n > 0 && n !== game._lastCount) { game._lastCount = n; showCountdown(n); }
     if (game.countdown <= 0) {
-      showCountdown(0);
-      game.state = STATE.INTRO;
+      showCountdown(0);                                    // GO!
+      game.state = STATE.INTRO;                            // 进入「从天上落下」开场
       game.ballVY = 0;
       document.body.classList.remove('show-cursor');
     }
@@ -55895,35 +55532,34 @@ function animate() {
 
   const running = (game.state === STATE.INTRO || game.state === STATE.PLAYING);
 
-  /* 速度曲线 */
+  /* ===== 难度曲线：速度随时间提升（再乘以本局难度倍率） ===== */
   if (game.state === STATE.PLAYING) {
     game.elapsed += dt;
     const base = Math.min(CFG.MAX_SPEED, CFG.BASE_SPEED + game.elapsed * CFG.SPEED_GROWTH);
+    /* 再乘难度倍率，但整体封顶在 MAX_SPEED_ABS：
+       挑战档 1.3 倍后期不会被推到失控（每帧要判断的砖太多，手感也会发飘） */
     game.speed = Math.min(CFG.MAX_SPEED_ABS, base * game.speedMul);
     updateSpeedBar();
   }
 
-  const boostMul = game.boost > 0 ? CFG.BOOST_SPEED_MUL : 1;
-  const speed = running ? game.speed * boostMul : 0;
-  const dz = speed * dt;
-
-  /* 季节推进（只在游戏中推进） */
-  if (running) updateSeason(dt);   // 季节推进：以金币为节奏，过渡限速、慢慢变
-  updateSeasonBlend();
-  skyDrawAcc += rawDt;
-  if (skyDrawAcc > 0.15) applySeasonVisual(skyDrawAcc);
-  updateSeasonTag();
+  const speed = running ? game.speed : 0;
+  const dz = speed * dt;                                  // 本帧世界后移距离
 
   if (running) {
+    /* ===== 世界滚动：地砖 / 障碍 / 金币 / 网格背景 =====
+       核心思路：所有物体只保存一个固定不变的「存档坐标 z0」，
+       屏幕坐标恒等于 z0 + game.travel（单一标量）。
+       这样不管帧率高低、几百块砖，排距都永远精确等于 TILE_SIZE，
+       不会因为逐帧累加 dz 而把 1.5 米的排距漂成 0.74/0.76 交替的「隐形裂缝」。 */
     game.travel += dz;
     updateTiles(dt);
-    updateObstacles(dt, realTime);
+    updateObstacles();
     updateCoins(dt);
     groundTex.offset.y += dz * GRID_SCROLL_PER_UNIT;
-    updateParticles(dt, dz, realTime);
-    updateProps(dz);
-    updateShadowBlobs(dz);
 
+    /* ===== 按需在前方生成新的一排 =====
+       排号 rowSpawned 连续递增，排的位置 = ROW_START - 排号 × 砖长；
+       每前进 TILE_SIZE 补一排，排距天然等于一块砖，不会重叠也不会漏 */
     let guard = 0;
     while (game.travel >= nextRowTravel && guard++ < 12) {
       nextRowTravel += CFG.TILE_SIZE;
@@ -55931,6 +55567,7 @@ function animate() {
       spawnRow(+(ROW_START - rowSpawned * CFG.TILE_SIZE).toFixed(3));
     }
 
+    /* ===== 云朵缓慢飘动（视差） ===== */
     for (const c of clouds) {
       c.position.z += dz * 0.55;
       c.position.x += Math.sin(game.elapsed * 0.3 + c.position.z) * dt * 1.2;
@@ -55940,26 +55577,23 @@ function animate() {
       }
     }
 
+    /* ===== 碰撞检测 ===== */
     checkObstacleCollision();
     checkCoinCollision();
   }
 
+  /* ===== 玩家更新（结算时冻结） ===== */
   if (game.state !== STATE.OVER && game.state !== STATE.READY) updatePlayer(dt, speed);
 
-  /* 相机：跟随 + 加速时视野变宽 */
-  const hMax = Math.max(0, game.ballY - CFG.PLAYER_RADIUS);
-  const hN = Math.min(hMax / 3.2, 1);
-  const targetFov = game.boost > 0 ? CFG.BOOST_FOV : CAM_FOV_BASE;
-  if (Math.abs(camera.fov - targetFov) > 0.1) {
-    camera.fov += (targetFov - camera.fov) * Math.min(1, rawDt * 4);
-    camera.updateProjectionMatrix();
-  }
+  /* ===== 相机：跟随小球 / 起跳时轻微上抬 / 受伤抖屏 ===== */
+  const hMax = Math.max(0, game.ballY - CFG.BALL_RADIUS);
+  const hN = Math.min(hMax / 3.2, 1);                     // 0 = 站在跑道上，1 = 跳到最高点
   camera.position.x += (game.ballX * 0.42 - camera.position.x) * (1 - Math.exp(-6 * dt));
   camera.position.y = 4.1 + hN * 1.5;
   camera.position.z = 8.2 + hN * 0.6;
   camera.lookAt(game.ballX * 0.42, 0.9 + hN * 1.1, -6);
 
-  if (cameraShake > 0) {
+  if (cameraShake > 0) {                                  // 抖屏
     cameraShake = Math.max(0, cameraShake - dt * 1.2);
     camera.position.x += (Math.random() - 0.5) * cameraShake;
     camera.position.y += (Math.random() - 0.5) * cameraShake * 0.6;
@@ -55970,21 +55604,33 @@ function animate() {
 
 
 /* ==================================================================
- * 【模块 14】声音：四季 BGM + 音效（WebAudio 实时合成，无需音频文件）
- *  - 四季切换时，BPM / 音色 / 鼓点强度全部插值，做到平滑淡入淡出
- *  - 全年保留稳定鼓点，给玩家节奏参考
- *  - BGM 音量低于音效，保证碰撞 / 金币 / 道具提示听得见
+ * 【模块 13.5】声音系统（WebAudio 实时合成，无需外部音频文件）
+ *  - bgm：一段轻快的循环旋律（三角波 + 柔和贝斯），默认循环播放
+ *  - sfx：跳跃 / 落地 / 吃金币 / 受伤 的短音效
+ *  浏览器要求用户交互后才能出声，所以第一次点击/按键时才启动 AudioContext
  * ================================================================== */
 const AudioSys = (function () {
-  let ctx = null, musicGain = null, sfxGain = null, timer = null;
-  let step = 0, bgmOn = CFG.MUSIC_ON;
+  let ctx = null;                     // AudioContext
+  let musicGain = null;               // 音乐总线
+  let sfxGain = null;                 // 音效总线
+  let musicTimer = null;              // 循环调度器
+  let step = 0;                       // 当前旋律步进
+  let bgmOn = CFG.MUSIC_ON;
 
-  /* 五声音阶（明快不刺耳），root 随季节移动 */
-  const SCALE = [0, 2, 4, 7, 9, 12, 14, 16];
-  const MELODY = [0, 4, 2, 5, 4, 2, 0, 3, 5, 4, 2, 0, 4, 5, 7, 5];
+  /* 旋律：C 大调五声音阶，明快、不刺耳 */
+  const MELODY = [
+    0, 4, 7, 12, 7, 4, 0, 7,
+    2, 5, 9, 14, 9, 5, 2, 9,
+    -3, 4, 7, 11, 7, 4, -3, 4,
+    -5, 0, 4, 9, 4, 0, -5, 0
+  ];
+  const BASE_NOTE = 72;               // C5（MIDI）
+  const BPM = 112;
+  const STEP_TIME = 60 / BPM / 2;     // 八分音符时长
 
   function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
 
+  /** 确保 AudioContext 已创建（必须在用户交互后调用） */
   function ensure() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return true; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -55993,19 +55639,20 @@ const AudioSys = (function () {
     musicGain = ctx.createGain();
     musicGain.gain.value = bgmOn ? CFG.MUSIC_VOLUME : 0;
     musicGain.connect(ctx.destination);
+
     sfxGain = ctx.createGain();
     sfxGain.gain.value = CFG.SFX_ON ? CFG.SFX_VOLUME : 0;
     sfxGain.connect(ctx.destination);
     return true;
   }
 
-  function tone({ freq, dur = 0.18, type = 'triangle', gain = 0.25, slideTo = null, bus = 'sfx', delay = 0, detune = 0 }) {
+  /** 播放一个短音符 */
+  function tone({ freq, dur = 0.18, type = 'triangle', gain = 0.25, slideTo = null, bus = 'sfx', delay = 0 }) {
     if (!ctx) return;
     const t0 = ctx.currentTime + delay;
     const osc = ctx.createOscillator();
     const g = ctx.createGain();
     osc.type = type;
-    if (detune) osc.detune.value = detune;
     osc.frequency.setValueAtTime(freq, t0);
     if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
     g.gain.setValueAtTime(0.0001, t0);
@@ -56017,139 +55664,97 @@ const AudioSys = (function () {
     osc.stop(t0 + dur + 0.05);
   }
 
-  /** 鼓：低频 sine 下滑 + 一点噪声感，四季都保留 */
-  function drum(gain, bright) {
-    if (!ctx) return;
-    const t0 = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(150 + bright * 60, t0);
-    osc.frequency.exponentialRampToValueAtTime(55, t0 + 0.09);
-    g.gain.setValueAtTime(gain, t0);
-    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.11);
-    osc.connect(g); g.connect(musicGain);
-    osc.start(t0); osc.stop(t0 + 0.13);
-
-    /* 高频"哒"，让节拍更清晰 */
-    const o2 = ctx.createOscillator(), g2 = ctx.createGain();
-    o2.type = 'square';
-    o2.frequency.setValueAtTime(1800, t0);
-    g2.gain.setValueAtTime(gain * 0.25, t0);
-    g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.035);
-    o2.connect(g2); g2.connect(musicGain);
-    o2.start(t0); o2.stop(t0 + 0.05);
-  }
-
-  /** 一个音乐步进：旋律 + 贝斯 + 鼓 + 季节特色音色 */
-  function scheduleStep() {
-    if (!ctx) return;
-    const m = VIEW.music;
-    const beat = 60 / m.bpm / 2;                 // 八分音符
+  /** 背景音乐：每 8 分音符推进一步，旋律 + 贝斯 + 轻鼓 */
+  function scheduleMusic() {
+    if (!ctx || !bgmOn) return;
     const n = step % MELODY.length;
-    const deg = MELODY[n];
+    const semis = MELODY[n];
 
-    /* 主旋律 */
-    tone({
-      freq: midiToFreq(m.root + 12 + SCALE[deg % SCALE.length]),
-      dur: beat * 1.4, type: m.lead, gain: m.leadGain, bus: 'music'
-    });
-    /* 夏季加入一点锯齿亮音，更有活力 */
-    if (m.saw > 0.3 && n % 2 === 0) {
-      tone({
-        freq: midiToFreq(m.root + 24 + SCALE[(deg + 2) % SCALE.length]),
-        dur: beat * 0.9, type: 'sawtooth', gain: m.leadGain * m.saw * 0.5, bus: 'music', detune: 6
-      });
-    }
-    /* 春季木笛点缀：正弦 + 微微颤音 */
-    if (m.flute > 0.5 && n % 8 === 4) {
-      tone({ freq: midiToFreq(m.root + 24 + SCALE[(deg + 4) % SCALE.length]), dur: beat * 2.2, type: 'sine', gain: 0.06 * m.flute, bus: 'music' });
-      tone({ freq: midiToFreq(m.root + 24 + SCALE[(deg + 4) % SCALE.length]) * 1.005, dur: beat * 2.0, type: 'sine', gain: 0.035 * m.flute, bus: 'music', delay: 0.02 });
-    }
-    /* 铺底和弦（秋/冬更厚，夏更薄） */
-    if (n % 8 === 0) {
-      [0, 4, 7].forEach((c, i) => tone({
-        freq: midiToFreq(m.root - 12 + c), dur: beat * 6.5,
-        type: 'sine', gain: m.pad * 0.5, bus: 'music', delay: i * 0.015
+    /* 主旋律（高八度，音量小一点） */
+    tone({ freq: midiToFreq(BASE_NOTE + semis), dur: STEP_TIME * 1.5, type: 'triangle', gain: 0.10, bus: 'music' });
+    /* 每两拍一个和弦点缀 */
+    if (n % 4 === 0) {
+      const chord = n < 16 ? [0, 4, 7] : [-3, 0, 4];
+      chord.forEach((c, i) => tone({
+        freq: midiToFreq(BASE_NOTE - 24 + c), dur: STEP_TIME * 3.4,
+        type: 'sine', gain: 0.13, bus: 'music', delay: i * 0.01
       }));
     }
-    /* 稳定鼓点：四季都有，强弱随季节变化 */
-    if (n % 2 === 0) drum(m.drum, m.saw);
-    if (n % 8 === 4 && m.drum > 0.06) drum(m.drum * 0.7, m.saw);
-
+    /* 轻鼓：弱拍打一下，节奏感更明显又不吵 */
+    if (n % 2 === 0) {
+      const t0 = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(160, t0);
+      osc.frequency.exponentialRampToValueAtTime(60, t0 + 0.09);
+      g.gain.setValueAtTime(0.06, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.1);
+      osc.connect(g); g.connect(musicGain);
+      osc.start(t0); osc.stop(t0 + 0.12);
+    }
     step++;
-    /* 用递归 setTimeout：BPM 随季节平滑变化时，间隔也会跟着平滑变化 */
-    timer = setTimeout(scheduleStep, beat * 1000);
   }
 
   return {
+    /** 启动（首次用户交互时调用） */
     start() {
       if (!ensure()) return;
-      if (!timer && bgmOn) { scheduleStep(); }
+      if (!musicTimer && bgmOn) {
+        scheduleMusic();
+        musicTimer = setInterval(scheduleMusic, STEP_TIME * 1000);
+      }
     },
+    /** 切换背景音乐 */
     toggleMusic(on) {
       bgmOn = on;
       if (!ctx) return;
       musicGain.gain.value = on ? CFG.MUSIC_VOLUME : 0;
-      if (on && !timer) scheduleStep();
-      if (!on && timer) { clearTimeout(timer); timer = null; }
+      if (on && !musicTimer) { musicTimer = setInterval(scheduleMusic, STEP_TIME * 1000); }
+      if (!on && musicTimer) { clearInterval(musicTimer); musicTimer = null; }
     },
     get musicOn() { return bgmOn; },
 
+    /* ---------- 音效 ---------- */
     jump(double) {
       if (!ensure() || !CFG.SFX_ON) return;
       tone({ freq: double ? 620 : 440, dur: 0.16, type: 'sine', gain: 0.22, slideTo: double ? 1100 : 780 });
     },
-    land() { if (!ensure() || !CFG.SFX_ON) return; tone({ freq: 180, dur: 0.1, type: 'sine', gain: 0.14, slideTo: 90 }); },
-    step() { if (!ensure() || !CFG.SFX_ON) return; tone({ freq: 120, dur: 0.06, type: 'sine', gain: 0.09, slideTo: 70 }); },
+    land() {
+      if (!ensure() || !CFG.SFX_ON) return;
+      tone({ freq: 180, dur: 0.1, type: 'sine', gain: 0.14, slideTo: 90 });
+    },
     coin() {
       if (!ensure() || !CFG.SFX_ON) return;
       tone({ freq: 988, dur: 0.07, type: 'sine', gain: 0.18 });
       tone({ freq: 1319, dur: 0.12, type: 'sine', gain: 0.16, delay: 0.06 });
     },
-    hurt() { if (!ensure() || !CFG.SFX_ON) return; tone({ freq: 300, dur: 0.24, type: 'square', gain: 0.10, slideTo: 90 }); },
+    hurt() {
+      if (!ensure() || !CFG.SFX_ON) return;
+      tone({ freq: 300, dur: 0.24, type: 'square', gain: 0.10, slideTo: 90 });
+    },
     over() {
       if (!ensure() || !CFG.SFX_ON) return;
-      [523, 440, 349, 262].forEach((f, i) => tone({ freq: f, dur: 0.22, type: 'triangle', gain: 0.14, delay: i * 0.14 }));
-    },
-    boltReady() {
-      if (!ensure() || !CFG.SFX_ON) return;
-      tone({ freq: 660, dur: 0.1, type: 'square', gain: 0.12 });
-      tone({ freq: 990, dur: 0.14, type: 'square', gain: 0.10, delay: 0.08 });
-    },
-    bolt() {
-      if (!ensure() || !CFG.SFX_ON) return;
-      tone({ freq: 300, dur: 0.35, type: 'sawtooth', gain: 0.16, slideTo: 1600 });
-      tone({ freq: 1200, dur: 0.2, type: 'square', gain: 0.10, delay: 0.05 });
-    },
-    smash() {
-      if (!ensure() || !CFG.SFX_ON) return;
-      tone({ freq: 520, dur: 0.12, type: 'square', gain: 0.12, slideTo: 180 });
-    },
-    slip() {
-      if (!ensure() || !CFG.SFX_ON) return;
-      tone({ freq: 1500, dur: 0.09, type: 'sine', gain: 0.10, slideTo: 700 });   // 冰面短促提示音
+      [523, 440, 349, 262].forEach((f, i) =>
+        tone({ freq: f, dur: 0.22, type: 'triangle', gain: 0.14, delay: i * 0.14 }));
     }
   };
 })();
 
-const sfxJump  = (d) => AudioSys.jump(d);
-const sfxLand  = () => AudioSys.land();
-const sfxStep  = () => AudioSys.step();
-const sfxCoin  = () => AudioSys.coin();
-const sfxHurt  = () => AudioSys.hurt();
-const sfxOver  = () => AudioSys.over();
-const sfxBoltReady = () => AudioSys.boltReady();
-const sfxBolt  = () => AudioSys.bolt();
-const sfxSmash = () => AudioSys.smash();
-const sfxSlip  = () => AudioSys.slip();
+/* 音效快捷别名（代码里直接调用 sfxJump() 等） */
+const sfxJump = (d) => AudioSys.jump(d);
+const sfxLand = () => AudioSys.land();
+const sfxCoin = () => AudioSys.coin();
+const sfxHurt = () => AudioSys.hurt();
+const sfxOver = () => AudioSys.over();
 
+/* 首次用户交互时启动音频（浏览器策略要求） */
 ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
   window.addEventListener(ev, () => AudioSys.start(), { once: true }));
 
 
 /* ==================================================================
- * 【模块 15】窗口自适应与启动
+ * 【模块 14】窗口自适应 与 启动
  * ================================================================== */
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -56157,13 +55762,13 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+/* 触摸设备显示操作提示 */
 if (window.matchMedia('(pointer: coarse)').matches) {
   document.getElementById('touchHint').style.display = 'block';
 }
 
+/* ---------- 启动：先铺好初始画面，再显示开始弹窗 ---------- */
 buildInitialWorld();
-updateSeasonBlend();
-applySeasonVisual(0);
 renderHUD();
 showStartCard();
 animate();
