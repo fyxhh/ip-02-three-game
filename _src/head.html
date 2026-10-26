@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>小熊快跑 · 四季滚动天空 3D</title>
+<style>
+  /* ============================================================
+     页面样式：全屏画布 + 可爱风 HUD / 弹窗
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #cdeeff;
+    font-family: "PingFang SC", "Microsoft YaHei", "Hiragino Sans GB", system-ui, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    cursor: none;
+  }
+  body.show-cursor, body.show-cursor * { cursor: default; }
+  canvas { display: block; }
+
+  /* ---------- 左上角 HUD：分数 / 生命 / 速度 ---------- */
+  #hud {
+    position: fixed; top: 18px; left: 18px; z-index: 20;
+    display: flex; flex-direction: column; gap: 10px;
+    pointer-events: none;
+  }
+  .panel {
+    background: rgba(255, 255, 255, .84);
+    border: 3px solid #ffffff;
+    border-radius: 18px;
+    padding: 9px 18px;
+    box-shadow: 0 8px 20px rgba(90, 150, 190, .25);
+    backdrop-filter: blur(6px);
+    display: flex; align-items: center; gap: 12px;
+    width: fit-content;
+  }
+  .label { font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #7ba7c4; }
+  #scoreValue {
+    font-size: 28px; font-weight: 900; color: #ff8a3d; line-height: 1;
+    font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 #ffe0c2;
+    min-width: 26px; text-align: center;
+  }
+  #livesValue { display: flex; gap: 6px; align-items: center; }
+  .heart {
+    width: 20px; height: 20px; display: inline-block; background: #ff5d73;
+    clip-path: path("M10 18 C10 18 1 12.4 1 6.6 C1 3.5 3.4 1 6.4 1 C8.1 1 9.4 1.9 10 3.1 C10.6 1.9 11.9 1 13.6 1 C16.6 1 19 3.5 19 6.6 C19 12.4 10 18 10 18 Z");
+    transition: transform .25s ease, background .25s ease, opacity .3s ease;
+  }
+  .heart.lost { background: #d9e6ee; transform: scale(.8); opacity: .6; }
+  .heart.pulse { animation: hb .45s ease; }
+  @keyframes hb { 0%{transform:scale(1)} 40%{transform:scale(1.5)} 100%{transform:scale(1)} }
+
+  #speedBarWrap { width: 120px; height: 9px; border-radius: 9px; background: #e2f1fa; overflow: hidden; }
+  #speedBar {
+    height: 100%; width: 0%; border-radius: 9px;
+    background: linear-gradient(90deg, #7ee0a5, #ffd166, #ff7a7a);
+    transition: width .2s linear;
+  }
+
+  /* ---------- 右上角：季节指示 ---------- */
+  #seasonTag {
+    position: fixed; top: 18px; right: 18px; z-index: 20;
+    pointer-events: none;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 15px; font-weight: 800; letter-spacing: 2px; color: #4a7c96;
+  }
+  #seasonIcon { font-size: 20px; }
+
+  /* ---------- 左下角：闪电加速按钮 ---------- */
+  #boltBtn {
+    position: fixed; left: 18px; bottom: 22px; z-index: 21;
+    display: flex; align-items: center; gap: 10px;
+    font-family: inherit; font-size: 16px; font-weight: 800; letter-spacing: 2px;
+    color: #8a6b00; background: rgba(255, 255, 255, .9);
+    border: 3px solid #ffe08a; border-radius: 999px; padding: 10px 22px;
+    box-shadow: 0 8px 20px rgba(180, 150, 60, .25);
+    opacity: .45; transform: scale(.94);
+    transition: all .18s ease; pointer-events: none;
+  }
+  #boltBtn.ready {
+    opacity: 1; transform: scale(1);
+    color: #fff; background: linear-gradient(#ffd94a, #ffab2e);
+    border-color: #fff3c4; cursor: pointer; pointer-events: auto;
+    animation: boltPulse 1.1s ease-in-out infinite;
+  }
+  @keyframes boltPulse {
+    0%,100% { box-shadow: 0 8px 20px rgba(255,190,60,.35); }
+    50%     { box-shadow: 0 8px 28px rgba(255,190,60,.75); }
+  }
+  #boltBtn:active { transform: scale(.94); }
+  #boltCount { font-size: 22px; font-variant-numeric: tabular-nums; }
+  #boltHint { font-size: 12px; font-weight: 600; opacity: .8; letter-spacing: 1px; }
+
+  /* ---------- 加速剩余时间条 ---------- */
+  #boostWrap {
+    position: fixed; left: 18px; bottom: 74px; z-index: 21;
+    width: 168px; height: 12px; border-radius: 12px; overflow: hidden;
+    background: rgba(255,255,255,.75); border: 2px solid #ffe08a;
+    display: none; pointer-events: none;
+  }
+  #boostWrap.on { display: block; }
+  #boostBar {
+    height: 100%; width: 100%; border-radius: 12px;
+    background: linear-gradient(90deg, #fff27a, #ffb02e);
+  }
+
+  /* ---------- 中央弹窗 ---------- */
+  #overlay {
+    position: fixed; inset: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(184, 228, 250, .58);
+    backdrop-filter: blur(7px);
+    animation: fadeIn .28s ease;
+  }
+  #overlay.hidden { display: none; }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+  .card {
+    background: #ffffff; border: 5px solid #ffffff; border-radius: 30px;
+    padding: 30px 44px 34px; text-align: center; max-width: 92vw; max-height: 92vh; overflow: auto;
+    box-shadow: 0 22px 60px rgba(86, 146, 186, .35), inset 0 -6px 0 #eaf6ff;
+    animation: pop .34s cubic-bezier(.2, 1.5, .5, 1);
+  }
+  @keyframes pop { from { transform: scale(.84) translateY(14px); opacity: 0 } to { transform: none; opacity: 1 } }
+
+  .card h1 { font-size: 32px; color: #2b7fb8; letter-spacing: 3px; margin-bottom: 6px; text-shadow: 0 3px 0 #dff1fb; }
+  .card h2 { font-size: 27px; color: #ff7a4d; letter-spacing: 4px; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: #93b5cc; letter-spacing: 1px; margin-bottom: 16px; }
+  .sectionTitle { font-size: 13px; font-weight: 800; color: #2b7fb8; letter-spacing: 2px; margin: 12px 0 6px; text-align: left; }
+  .tips { text-align: left; display: inline-block; font-size: 14px; color: #6f96b1; line-height: 2.0; }
+  .tips b { color: #2b7fb8; }
+  .key {
+    display: inline-block; min-width: 24px; padding: 0 8px;
+    background: #eef7fd; border: 2px solid #cfe8f7; border-radius: 7px;
+    font-size: 12px; font-weight: 700; color: #3d90c7; text-align: center;
+  }
+  .finalScore {
+    font-size: 66px; font-weight: 900; color: #ff8a3d; line-height: 1.1;
+    font-variant-numeric: tabular-nums; text-shadow: 0 4px 0 #ffe6d2;
+  }
+  .best { font-size: 14px; color: #93b5cc; margin-top: 6px; }
+
+  button.btn {
+    margin-top: 22px; font-family: inherit; font-size: 19px; font-weight: 800; letter-spacing: 4px;
+    color: #fff; background: linear-gradient(#5fc0f5, #2f9ae0);
+    border: none; border-radius: 999px; padding: 15px 52px;
+    cursor: pointer; box-shadow: 0 7px 0 #1f7cb8, 0 12px 22px rgba(47, 154, 224, .35);
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  button.btn:hover { transform: translateY(-2px); box-shadow: 0 9px 0 #1f7cb8, 0 16px 26px rgba(47, 154, 224, .4); }
+  button.btn:active { transform: translateY(5px); box-shadow: 0 2px 0 #1f7cb8, 0 6px 12px rgba(47, 154, 224, .3); }
+
+  .diffRow { display: flex; gap: 10px; justify-content: center; }
+  .diffBtn {
+    flex: 1; max-width: 108px; font-family: inherit; font-size: 15px; font-weight: 800;
+    letter-spacing: 2px; color: #5d8fb0; background: #f2f9fe;
+    border: 2px solid #d5e9f7; border-radius: 14px; padding: 9px 0;
+    cursor: pointer; transition: all .14s ease;
+  }
+  .diffBtn:hover { background: #e8f4fd; transform: translateY(-1px); }
+  .diffBtn.active {
+    color: #fff; background: linear-gradient(#6dc9f8, #2f9ae0);
+    border-color: #2f9ae0; box-shadow: 0 4px 0 #1f7cb8;
+  }
+
+  /* ---------- 受伤全屏红闪 ---------- */
+  #flash {
+    position: fixed; inset: 0; z-index: 25; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle, rgba(255,90,110,0) 30%, rgba(255,90,110,.6) 100%);
+    transition: opacity .4s ease;
+  }
+  #flash.on { opacity: 1; transition: opacity .06s ease; }
+
+  /* ---------- 加速时的速度线 ---------- */
+  #boostFx {
+    position: fixed; inset: 0; z-index: 22; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle, rgba(255,255,255,0) 42%, rgba(255,236,150,.42) 100%);
+    transition: opacity .25s ease;
+  }
+  #boostFx.on { opacity: 1; }
+
+  #touchHint {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    z-index: 20; font-size: 13px; letter-spacing: 1px; color: #fff;
+    background: rgba(70, 150, 200, .55); padding: 7px 20px; border-radius: 999px;
+    pointer-events: none; display: none;
+  }
+
+  .countdown {
+    position: fixed; inset: 0; z-index: 24; pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 130px; font-weight: 900; color: #ffffff; letter-spacing: 4px;
+    text-shadow: 0 8px 0 rgba(47, 154, 224, .35), 0 0 40px rgba(120, 190, 240, .6);
+    animation: cdPop .8s ease forwards;
+  }
+  @keyframes cdPop {
+    0%   { transform: scale(.4); opacity: 0; }
+    25%  { transform: scale(1.08); opacity: 1; }
+    70%  { transform: scale(1); opacity: 1; }
+    100% { transform: scale(1.3); opacity: 0; }
+  }
+
+  .toast {
+    position: fixed; top: 38%; left: 50%; z-index: 24; pointer-events: none;
+    transform: translate(-50%, -50%);
+    font-size: 26px; font-weight: 900; letter-spacing: 3px; color: #ff5d73;
+    text-shadow: 0 3px 0 #fff, 0 0 18px rgba(255, 255, 255, .8);
+    animation: toastUp .9s ease forwards;
+  }
+  .toast.good { color: #2fbf6e; }
+  .toast.bolt { color: #ffab2e; }
+  @keyframes toastUp {
+    0%   { transform: translate(-50%, -20%) scale(.7); opacity: 0; }
+    25%  { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+    70%  { transform: translate(-50%, -60%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -110%) scale(1); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== HUD：分数 / 生命 / 速度 ==================== -->
+<div id="hud">
+  <div class="panel">
+    <span class="label">分数</span>
+    <span id="scoreValue">0</span>
+  </div>
+  <div class="panel">
+    <span class="label">生命</span>
+    <span id="livesValue"></span>
+  </div>
+  <div class="panel">
+    <span class="label">速度</span>
+    <div id="speedBarWrap"><div id="speedBar"></div></div>
+  </div>
+</div>
+
+<!-- ==================== 季节指示 ==================== -->
+<div id="seasonTag"><span id="seasonIcon">🌸</span><span id="seasonName">春</span></div>
+
+<!-- ==================== 闪电加速 ==================== -->
+<div id="boostWrap"><div id="boostBar"></div></div>
+<button id="boltBtn"><span style="font-size:20px">⚡</span><span id="boltCount">0</span><span id="boltHint">按 F 加速</span></button>
+
+<div id="flash"></div>
+<div id="boostFx"></div>
+<div id="touchHint">左右滑动 / 点击 来操控小熊</div>
+
+<!-- ==================== 中央弹窗 ==================== -->
+<div id="overlay"><div class="card" id="card"></div></div>
+
