@@ -4,7 +4,7 @@
 
 ## 🎮 在线试玩
 
-**https://fyxhh.github.io/rolling-sky-game/**
+**https://fyxhh.github.io/ip-02-three-game/**
 
 用手机或电脑浏览器打开上面的链接即可直接游玩（无需安装）。
 
