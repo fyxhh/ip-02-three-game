@@ -54098,6 +54098,25 @@ const CFG = {
   MUSIC_VOLUME:    0.16,    // 背景音乐音量
   SFX_ON:          true,    // 总开关：音效
   MUSIC_ON:        true,    // 总开关：背景音乐
+  BOOST_PICK_VOL:  0.085,   // ⚡拾取闪电的五连音音量（嫌吵就调小，0.04 很轻）
+  BOOST_WIND_VOL:  0.045,   // ⚡加速期间的风声底噪音量（贴着背景，别超过 0.08）
+  BOOST_WIND_RAMP: 0.35,    // ⚡风声淡入秒数（越大越柔和）
+
+  /* ---------- 白天 / 夜晚循环 ---------- */
+  DAY_NIGHT_PERIOD: 70,     // 一个完整昼夜循环的秒数（白天→黑夜→白天慢慢过渡）
+
+  /* ---------- ⚡闪电加速道具 ---------- */
+  BOOST_CHANCE:   0.06,     // 【概率】每排出现闪电的概率
+  BOOST_DURATION: 3,        // 加速持续秒数
+  BOOST_FACTOR:   1.55,     // 加速时的速度倍率
+  BOOST_MIN_ROW:  16,       // 开局多少排之后才会出现闪电
+
+  /* ---------- 💣炸弹（碰到 = 爆炸扣命，跳起来可越过） ---------- */
+  BOMB_RATE:      0.25,     // 障碍生成时有多大比例是炸弹
+  BOMB_MIN_ROW:   34,       // 开局多少排之后才出现炸弹
+
+  /* ---------- 皮肤 ---------- */
+  SKIN_COUNT: 7,            // 皮肤数量（马卡龙彩虹七色，带花朵图案）
 
   /* ---------- 生命与节奏 ---------- */
   START_LIVES:     3,       // 初始生命数
@@ -54156,6 +54175,10 @@ window.__game = {
   /** 只读：全部活动地砖的原始数据（调试用） */
   rawTiles() { return activeTiles.map(t => ({ lane: t.lane, z: +t.z.toFixed(2), rise: +t.rise.toFixed(2) })); },
   get obstacles() { return obstacles.length; },
+  get bombs() { return bombs.length; },
+  get boosts() { return boosts.length; },
+  get skin() { return skinIndex; },
+  get night() { return DAY_NIGHT.night; },
   get elapsed() { return game.elapsed; },
   get protect() { return game.protect; },
   get landLock() { return game.landLock; },
@@ -54237,24 +54260,37 @@ const camera = new THREE.PerspectiveCamera(56, window.innerWidth / window.innerH
 camera.position.set(0, 4.1, 8.2);
 camera.lookAt(0, 0.9, -6);
 
-/* --- 天空：竖向渐变画布贴图当作场景背景，简单又好看 --- */
-(function buildSky() {
+/* --- 天空：竖向渐变画布贴图；昼夜循环时会整幅重画 --- */
+function mixHex(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
+  const ch = (sa, sb) => Math.round(sa + (sb - sa) * t);
+  return 'rgb(' + ch((pa >> 16) & 255, (pb >> 16) & 255) + ',' +
+         ch((pa >> 8) & 255, (pb >> 8) & 255) + ',' + ch(pa & 255, pb & 255) + ')';
+}
+const skyRebuild = (function buildSky() {
   const c = document.createElement('canvas');
   c.width = 4; c.height = 256;
   const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, 0, 256);
-  g.addColorStop(0, CFG.COLOR.SKY_TOP);
-  g.addColorStop(0.62, '#d9f2ff');
-  g.addColorStop(1, CFG.COLOR.SKY_BOTTOM);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   scene.background = tex;
+  /** night: 0 = 白天正午 → 1 = 深夜 */
+  return function rebuildSky(night) {
+    const g = ctx.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0,    mixHex('#9fdcff', '#1b2354', night));
+    g.addColorStop(0.62, mixHex('#d9f2ff', '#333a75', night));
+    g.addColorStop(1,    mixHex('#e9f9ff', '#5a60a8', night));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
+    tex.needsUpdate = true;
+  };
 })();
+skyRebuild(0);
 
 /* --- 灯光：半球光保证整体明亮柔和，平行光负责投影 --- */
-scene.add(new THREE.HemisphereLight(0xffffff, 0xc9e8fa, 1.45));
-scene.add(new THREE.AmbientLight(0xfff0e0, 0.32));
+const hemiLight = new THREE.HemisphereLight(0xffffff, 0xc9e8fa, 1.45);
+scene.add(hemiLight);
+const ambLight = new THREE.AmbientLight(0xfff0e0, 0.32);
+scene.add(ambLight);
 
 const sunLight = new THREE.DirectionalLight(0xffffff, 2.2);
 sunLight.position.set(7, 18, 9);
@@ -54270,6 +54306,160 @@ sunLight.shadow.bias = -0.0012;
 sunLight.shadow.normalBias = 0.02;
 sunLight.target.position.set(0, 0, -6);
 scene.add(sunLight, sunLight.target);
+
+/* ==================================================================
+ * 【模块 2.5】白天 / 夜晚循环
+ * 沿三角波 0（正午）→ 1（深夜）→ 0 缓慢往复：
+ * 天空渐变、雾色、灯光、云海网格、星空与月亮全部跟着过渡。
+ * ================================================================== */
+const DAY_NIGHT = { t: CFG.DAY_NIGHT_PERIOD * 0.06, night: 0 };   // 起始偏移一点，开局是明亮白天
+const _fogDay   = new THREE.Color(0xd6f0ff);
+const _fogNight = new THREE.Color(0x272e5e);
+const _voidNight = new THREE.Color(0x2c3468);
+const _cloudDay = new THREE.Color(0xffffff);
+const _cloudNight = new THREE.Color(0x4a5178);
+
+/* --- 夜空星星（白天淡出） --- */
+const starMat = new THREE.PointsMaterial({ color: 0xfff8e0, size: 0.4, transparent: true, opacity: 0, depthWrite: false });
+(function buildStars() {
+  const N = 240, pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    pos[i * 3]     = (Math.random() - 0.5) * 120;
+    pos[i * 3 + 1] = 6 + Math.random() * 36;
+    pos[i * 3 + 2] = -10 - Math.random() * 130;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  scene.add(new THREE.Points(geo, starMat));
+})();
+
+/* --- 月亮（夜晚浮现） --- */
+const moonMat = new THREE.MeshBasicMaterial({ color: 0xfff3c9, transparent: true, opacity: 0 });
+const moon = new THREE.Mesh(new THREE.SphereGeometry(2.6, 20, 16), moonMat);
+moon.position.set(-16, 24, -78);
+scene.add(moon);
+
+/* --- 通用光晕贴图（太阳 / 路灯光晕共用，颜色靠材质 tint） --- */
+const GLOW_TEX = (function buildGlowTexture() {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(S/2, S/2, 4, S/2, S/2, S/2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.35, 'rgba(255,255,255,.55)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, S, S);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+
+/* --- 太阳（白天出现，夜晚隐去） --- */
+const sunMat = new THREE.SpriteMaterial({ map: GLOW_TEX, color: 0xffe9a3, transparent: true, opacity: 0, depthWrite: false });
+const sun = new THREE.Sprite(sunMat);
+sun.position.set(19, 26, -85);
+sun.scale.set(10, 10, 1);
+scene.add(sun);
+
+/* --- 路灯（白天熄灭，夜晚点亮 + 暖光晕） --- */
+const LAMP_COUNT = 10, LAMP_SPACING = 16, LAMP_SPAN = LAMP_COUNT * LAMP_SPACING;
+const lampPoleMat = new THREE.MeshLambertMaterial({ color: 0x46517e });
+const lampHeadMat = new THREE.MeshLambertMaterial({ color: 0xf6ead2 });   // 奶油色灯头罩：白天也可见，不再是光杆
+const _bulbDay = new THREE.Color(0xeef1f8);     // 白天：乳白磨砂灯泡
+const _bulbNight = new THREE.Color(0xffe9a8);   // 夜晚：点亮成暖黄
+const lampBulbMat = new THREE.MeshBasicMaterial({ color: 0xeef1f8, transparent: true, opacity: 0.25 });
+const lampGlowMat = new THREE.SpriteMaterial({ map: GLOW_TEX, color: 0xffd98a, transparent: true, opacity: 0, depthWrite: false });
+const lamps = [];
+(function buildLamps() {
+  const poleGeo = new THREE.CylinderGeometry(0.055, 0.075, 2.4, 8);
+  const bulbGeo = new THREE.SphereGeometry(0.17, 12, 10);
+  for (let i = 0; i < LAMP_COUNT; i++) {
+    const g = new THREE.Group();
+    const side = i % 2 === 0 ? 1 : -1;                     // 左右交错
+    const pole = new THREE.Mesh(poleGeo, lampPoleMat);
+    pole.position.y = 1.2;
+    /* 灯头罩：压扁的奶油色小圆顶，白天也能看出这是一盏路灯 */
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 10), lampHeadMat);
+    head.position.y = 2.5;
+    head.scale.set(1, 0.62, 1);
+    const bulb = new THREE.Mesh(bulbGeo, lampBulbMat);
+    bulb.position.y = 2.3;
+    const glow = new THREE.Sprite(lampGlowMat);
+    glow.position.y = 2.32;
+    glow.scale.set(2.1, 2.1, 1);
+    g.add(pole, head, bulb, glow);
+    g.position.set(side * (CFG.TRACK_HALF + 1.15), 0, 8 - i * LAMP_SPACING);
+    scene.add(g);
+    lamps.push({ g, z0: 8 - i * LAMP_SPACING });
+  }
+})();
+
+/** 每帧推进路灯（随跑道一起滚动，滚过身后就送到最远处复用） */
+function updateLamps() {
+  /* 循环窗口：宽度恰 = 灯组总长(LAMP_SPAN)，任意 travel 都能取模归位——
+     不管滚过身后还是重开把 travel 归零，路灯都会落回窗口内，
+     且 160 是 16 的整倍数，10 盏灯的间距永远完美保持 */
+  const lo = CFG.RECYCLE_Z - LAMP_SPAN;
+  for (const L of lamps) {
+    let z = L.z0 + game.travel;
+    z = lo + (((z - lo) % LAMP_SPAN) + LAMP_SPAN) % LAMP_SPAN;
+    L.z0 = z - game.travel;
+    L.g.position.z = z;
+  }
+}
+
+/* --- 萤火虫（夜晚才出现，在赛道两侧轻轻飘） --- */
+const fireflyMat = new THREE.PointsMaterial({ color: 0xfff2b0, size: 0.22, transparent: true, opacity: 0, depthWrite: false });
+const fireflies = (function buildFireflies() {
+  const N = 42, pos = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    pos[i * 3]     = side * (CFG.TRACK_HALF + 0.4 + Math.random() * 2.4);
+    pos[i * 3 + 1] = 0.5 + Math.random() * 2.6;
+    pos[i * 3 + 2] = -4 - Math.random() * 76;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, fireflyMat);
+  scene.add(pts);
+  return pts;
+})();
+
+/** 每帧推进昼夜循环（暂停时不调用，夜色也会静止） */
+function updateDayNight(dt) {
+  DAY_NIGHT.t += dt;
+  const cyc = (DAY_NIGHT.t % CFG.DAY_NIGHT_PERIOD) / CFG.DAY_NIGHT_PERIOD;
+  const night = cyc < 0.5 ? cyc * 2 : (1 - cyc) * 2;      // 0→1→0 三角波
+  DAY_NIGHT.night = night;
+
+  skyRebuild(night);                                       // 重画天空渐变
+  scene.fog.color.copy(_fogDay).lerp(_fogNight, night);
+  hemiLight.intensity = 1.45 - night * 0.88;
+  ambLight.intensity  = 0.32 - night * 0.17;
+  sunLight.intensity  = 2.2 - night * 1.6;
+  sunLight.color.setHSL(0.6, 0.35 * night, 1 - night * 0.28);  // 夜晚光线变冷蓝「月光」
+  starMat.opacity = night * 0.95;
+  moonMat.opacity = night;
+  ground.material.opacity = 0.55 - night * 0.28;           // 夜晚云海网格变淡
+  cloudMat.color.lerpColors(_cloudDay, _cloudNight, night); // 云朵夜里变成暗蓝灰，不再惨白突兀
+  cloudMat.emissiveIntensity = 0.42 - night * 0.30;
+  cloudMat.opacity = 0.85 - night * 0.40;
+  voidFloor.material.color.setHex(0xffffff).lerp(_voidNight, night);
+
+  /* --- 昼夜「景物特征」：不只是换颜色，东西会真的出现/消失 --- */
+  sunMat.opacity = (1 - night) * 0.95;                      // 白天有太阳，入夜隐去
+  sun.scale.set(10 + Math.sin(realTime * 1.3) * 0.4, 10 + Math.sin(realTime * 1.3) * 0.4, 1);
+  moon.position.y = 24 + Math.sin(realTime * 0.5) * 1.2;    // 月亮缓缓浮动
+  starMat.size = 0.4 + Math.sin(realTime * 2.2) * 0.09;     // 星星一闪一闪
+  const lampOn = THREE.MathUtils.clamp((night - 0.35) / 0.65, 0, 1);
+  lampBulbMat.opacity = 0.25 + lampOn * 0.75;               // 白天乳白微亮，夜幕深了才真正点亮
+  lampBulbMat.color.lerpColors(_bulbDay, _bulbNight, lampOn);
+  lampGlowMat.opacity = lampOn * 0.8;                       // 灯泡外圈暖光晕
+  fireflyMat.opacity = lampOn * 0.9;                        // 萤火虫与路灯一同浮现
+  fireflies.position.y = Math.sin(realTime * 0.8) * 0.4;    // 萤火虫群轻轻飘
+}
 
 
 /* ==================================================================
@@ -54335,16 +54525,21 @@ scene.add(voidFloor);
  * 几团蓬松白云缓慢飘过，强化「滚动天空」的氛围。
  * ================================================================== */
 const clouds = [];
+/* Lambert 材质：云顶被光照亮、云底自然带阴影，不再是一坨惨白的扁平圆球 */
+const cloudMat = new THREE.MeshLambertMaterial({
+  color: 0xffffff, emissive: 0x9aa4c4, emissiveIntensity: 0.42,
+  transparent: true, opacity: 0.85
+});
 (function buildClouds() {
-  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 });
-  const blobGeo = new THREE.SphereGeometry(1, 12, 10);
-  for (let i = 0; i < 9; i++) {
+  const blobGeo = new THREE.SphereGeometry(1, 14, 12);
+  for (let i = 0; i < 10; i++) {
     const g = new THREE.Group();
-    const n = 3 + ((Math.random() * 3) | 0);
+    const n = 4 + ((Math.random() * 3) | 0);
     for (let j = 0; j < n; j++) {
-      const m = new THREE.Mesh(blobGeo, mat);
-      m.position.set((j - n / 2) * 1.5 + Math.random(), Math.random() * 0.6, Math.random() * 1.2 - 0.6);
-      m.scale.set(1.5 + Math.random(), 1.0 + Math.random() * 0.5, 1.3 + Math.random() * 0.6);
+      const m = new THREE.Mesh(blobGeo, cloudMat);
+      m.position.set((j - n / 2) * 1.4 + Math.random() * 0.8, Math.random() * 0.5, Math.random() * 1.6 - 0.8);
+      /* 压得更扁、拉得更长：云底平、云顶蓬，更接近真实云的形状 */
+      m.scale.set(1.6 + Math.random() * 0.9, 0.55 + Math.random() * 0.35, 1.1 + Math.random() * 0.5);
       g.add(m);
     }
     g.position.set((Math.random() - 0.5) * 46, 9 + Math.random() * 10, -20 - Math.random() * 90);
@@ -54502,6 +54697,26 @@ const OB_GEO_CAP  = new THREE.BoxGeometry(CFG.OBSTACLE_W * 1.06, CFG.OBSTACLE_H 
 const OB_NEAR_COLOR = new THREE.Color('#ff5c6c');
 const OB_FAR_COLOR  = new THREE.Color('#ffb3a0');
 const _tmpCol = new THREE.Color();
+/* 障碍箱体的斜纹贴图（奶白 × 珊瑚红条纹，可爱版警示纹） */
+const OB_STRIPE_TEX = (function buildObstacleStripe() {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, S, S);
+  ctx.fillStyle = 'rgba(255,110,120,.9)';
+  for (let i = -S; i < S * 2; i += 32) {
+    ctx.beginPath();
+    ctx.moveTo(i, 0); ctx.lineTo(i + 16, 0);
+    ctx.lineTo(i + 16 - S, S); ctx.lineTo(i - S, S);
+    ctx.closePath(); ctx.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(2, 1);
+  return t;
+})();
 const OB_FADE_START = -42, OB_FADE_END = -6;              // 红→淡色的距离区间
 
 /** 从对象池取出一个障碍方块（两层方块叠成小箱子造型） */
@@ -54510,7 +54725,7 @@ function acquireObstacle() {
   if (!g) {
     /* 每个障碍单独持有材质，才能按距离单独染色 */
     g = new THREE.Group();
-    const body = new THREE.Mesh(OB_GEO_BODY, new THREE.MeshLambertMaterial({ color: OB_NEAR_COLOR.clone() }));
+    const body = new THREE.Mesh(OB_GEO_BODY, new THREE.MeshLambertMaterial({ color: OB_NEAR_COLOR.clone(), map: OB_STRIPE_TEX }));
     body.position.y = CFG.OBSTACLE_H * 0.31;
     body.castShadow = body.receiveShadow = true;
     const cap = new THREE.Mesh(OB_GEO_CAP, new THREE.MeshLambertMaterial({ color: CFG.COLOR.OBSTACLE_TOP }));
@@ -54536,6 +54751,227 @@ function releaseObstacle(o) {
   o.group.visible = false;
   scene.remove(o.group);
   obstaclePool.push(o.group);
+}
+
+
+/* ==================================================================
+ * 【模块 6.5】炸弹 💣
+ * 圆滚滚的黑炸弹 + 引线火花，碰到 = 爆炸扣一条命（同样能跳过去）。
+ * 占位逻辑与障碍完全一致（同一条「必留活路」的规则）。
+ * ================================================================== */
+const bombs = [];                                        // 活动炸弹：{ group, x, z0, z, alive }
+const bombPool = [];
+
+const BOMB_GEO = new THREE.SphereGeometry(0.44, 20, 16);
+const BOMB_FUSE_GEO = new THREE.CylinderGeometry(0.05, 0.07, 0.26, 8);
+
+function acquireBomb() {
+  let g = bombPool.pop();
+  if (!g) {
+    g = new THREE.Group();
+    const body = new THREE.Mesh(BOMB_GEO, new THREE.MeshStandardMaterial({
+      color: 0x33333d, roughness: 0.35, metalness: 0.25,
+      emissive: new THREE.Color(0xff3b30), emissiveIntensity: 0.10
+    }));
+    body.position.y = 0.42;
+    body.castShadow = true;
+    /* 引线 + 火花 */
+    const fuse = new THREE.Mesh(BOMB_FUSE_GEO, new THREE.MeshLambertMaterial({ color: 0xc9a06a }));
+    fuse.position.y = 0.92; fuse.rotation.z = 0.25;
+    const spark = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffc23e })
+    );
+    spark.position.set(0.06, 1.06, 0);
+    g.add(body, fuse, spark);
+    g.userData.spark = spark;
+  }
+  g.visible = true;
+  scene.add(g);
+  return g;
+}
+
+/** 在指定车道生成一个炸弹 */
+function spawnBomb(lane, z) {
+  const g = acquireBomb();
+  g.position.set(LANE_X[lane], 0, z);
+  bombs.push({ group: g, x: LANE_X[lane], z0: z, z, alive: true });
+}
+
+function releaseBomb(b) {
+  b.group.visible = false;
+  scene.remove(b.group);
+  bombPool.push(b.group);
+}
+
+/** 每帧推进炸弹：位置、火花闪烁、轻微鼓动 */
+function updateBombs() {
+  for (let i = bombs.length - 1; i >= 0; i--) {
+    const b = bombs[i];
+    b.z = b.z0 + game.travel;
+    b.group.position.z = b.z;
+    /* 火花随机闪 + 炸弹轻微脉冲，营造「随时会炸」的紧张感 */
+    b.group.userData.spark.scale.setScalar(0.7 + Math.random() * 0.9);
+    b.group.scale.setScalar(1 + Math.sin(realTime * 9 + b.z0) * 0.05);
+    if (b.z > CFG.RECYCLE_Z || !b.alive) {
+      bombs.splice(i, 1);
+      releaseBomb(b);
+    }
+  }
+}
+
+/** 炸弹碰撞：贴到就爆炸（跳过它的高度就不会触发） */
+function checkBombCollision() {
+  if (game.state !== STATE.PLAYING) return;
+  if (game.ballY - CFG.BALL_RADIUS > 0.62) return;         // 跳得够高就直接飞过
+  const R = CFG.BALL_RADIUS * CFG.BALL_HIT_SCALE + 0.40;
+  for (const b of bombs) {
+    if (!b.alive) continue;
+    const dx = b.x - game.ballX, dz = b.z - 0;
+    if (dx * dx + dz * dz < R * R) {
+      cameraShake = 0.7;                                   // 爆炸震屏比普通撞击更猛
+      takeDamage(b, '💥 炸弹爆炸');
+      break;
+    }
+  }
+}
+
+
+/* ==================================================================
+ * 【模块 6.6】空洞警示圈 ⭕
+ * 每个「坑」的位置悬一圈白色虚线轮廓（微微呼吸闪烁），
+ * 远远就能看清缺口在哪，又不破坏马卡龙的轻盈美感。
+ * ================================================================== */
+const holeMarkers = [];
+const holeMarkerPool = [];
+
+/** 圆角矩形路径（兼容封装） */
+function rr(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+const HOLE_MARK_TEX = (function buildHoleMarkerTexture() {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  /* 半透明暗色填充：提示「这里没有路」 */
+  ctx.fillStyle = 'rgba(255,86,114,.38)';
+  rr(ctx, 6, 6, S - 12, S - 12, 20); ctx.fill();
+  /* 白色虚线描边：加粗加大，远处也一眼可见 */
+  ctx.strokeStyle = 'rgba(255,255,255,.98)';
+  ctx.lineWidth = 10;
+  ctx.setLineDash([22, 12]);
+  rr(ctx, 6, 6, S - 12, S - 12, 20); ctx.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+
+const HOLE_MARK_GEO = new THREE.PlaneGeometry(CFG.TILE_SIZE * 0.94, CFG.TILE_SIZE * 0.94);
+
+/* --- 悬浮警告牌 ⚠：坑的最后一排（离玩家最近处）上方飘一个，远处也能一眼看到 --- */
+const HOLE_WARN_TEX = (function buildHoleWarnTexture() {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const cx = S / 2, top = 18, halfW = 46, bottom = 108;
+  /* 圆角三角形：马卡龙暖黄底 + 奶油色描边 */
+  ctx.beginPath();
+  ctx.moveTo(cx, top);
+  ctx.lineTo(cx + halfW, bottom);
+  ctx.lineTo(cx - halfW, bottom);
+  ctx.closePath();
+  ctx.fillStyle = '#ff6b81';          /* 珊瑚红：危险=红，与黄色闪电道具区分开 */
+  ctx.fill();
+  ctx.lineWidth = 9;
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#ffe1e7';
+  ctx.stroke();
+  /* 白色感叹号 */
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#fff';
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 11;
+  ctx.beginPath(); ctx.moveTo(cx, 46); ctx.lineTo(cx, 76); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx, 92, 6.5, 0, Math.PI * 2); ctx.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+const holeWarnPool = [];
+
+function acquireHoleWarn() {
+  let sp = holeWarnPool.pop();
+  if (!sp) {
+    sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: HOLE_WARN_TEX, transparent: true, depthWrite: false
+    }));
+    sp.scale.set(1.15, 1.15, 1);
+  }
+  sp.visible = true;
+  scene.add(sp);
+  return sp;
+}
+
+function releaseHoleWarn(sp) {
+  sp.visible = false;
+  scene.remove(sp);
+  holeWarnPool.push(sp);
+}
+
+function acquireHoleMarker() {
+  let m = holeMarkerPool.pop();
+  if (!m) {
+    m = new THREE.Mesh(HOLE_MARK_GEO, new THREE.MeshBasicMaterial({
+      map: HOLE_MARK_TEX, transparent: true, depthWrite: false
+    }));
+    m.rotation.x = -Math.PI / 2;
+  }
+  m.visible = true;
+  scene.add(m);
+  return m;
+}
+
+/** 在坑的每一排放一个警示圈（z 为存档坐标）；withWarn=true 时在上方挂悬浮警告牌 */
+function spawnHoleMarker(lane, z, withWarn) {
+  const m = acquireHoleMarker();
+  m.position.set(LANE_X[lane], 0.02, z);    // 贴着跑道面：远处也能一眼看到缺口
+  const h = { mesh: m, z0: z, z, warn: null };
+  if (withWarn) {
+    h.warn = acquireHoleWarn();
+    h.warn.position.set(LANE_X[lane], 1.55, z);
+  }
+  holeMarkers.push(h);
+}
+
+function releaseHoleMarker(h) {
+  h.mesh.visible = false;
+  scene.remove(h.mesh);
+  holeMarkerPool.push(h.mesh);
+  if (h.warn) { releaseHoleWarn(h.warn); h.warn = null; }
+}
+
+/** 每帧推进警示圈 + 呼吸闪烁 */
+function updateHoleMarkers() {
+  for (let i = holeMarkers.length - 1; i >= 0; i--) {
+    const h = holeMarkers[i];
+    h.z = h.z0 + game.travel;
+    h.mesh.position.z = h.z;
+    h.mesh.material.opacity = 0.82 + Math.sin(realTime * 6.5) * 0.18;   // 呼吸更明显
+    if (h.warn) {
+      h.warn.position.z = h.z;
+      h.warn.position.y = 1.55 + Math.sin(realTime * 4 + h.z0 * 1.7) * 0.16;  // 轻轻上下飘
+    }
+    if (h.z > CFG.RECYCLE_Z) { holeMarkers.splice(i, 1); releaseHoleMarker(h); }
+  }
 }
 
 /** 每帧推进障碍位置（同时按距离染色，越近越红）。位置同样用 z0 + travel 重算。 */
@@ -54617,6 +55053,113 @@ function updateCoins(dt) {
 
 
 /* ==================================================================
+ * 【模块 7.5】⚡闪电加速道具
+ * 从天上掉落，接到后 5 秒内速度大幅提升（HUD 有倒计时标签）。
+ * ================================================================== */
+const boosts = [];                                       // 活动闪电：{ group, x, y, z0, z, landed }
+const boostPool = [];
+
+const BOLT_TEX = (function buildBoltTexture() {
+  const S = 128;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  /* 光晕 */
+  const glow = ctx.createRadialGradient(S/2, S/2, 6, S/2, S/2, S/2);
+  glow.addColorStop(0, 'rgba(255,230,120,.85)');
+  glow.addColorStop(1, 'rgba(255,230,120,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0, 0, S, S);
+  /* 闪电形状 */
+  ctx.beginPath();
+  ctx.moveTo(72, 8); ctx.lineTo(34, 66); ctx.lineTo(58, 66);
+  ctx.lineTo(48, 120); ctx.lineTo(96, 52); ctx.lineTo(66, 52);
+  ctx.closePath();
+  ctx.fillStyle = '#ffd94a';
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 5;
+  ctx.fill(); ctx.stroke();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+})();
+
+const BOLT_GEO = new THREE.PlaneGeometry(1.05, 1.05);
+const BOLT_MAT = new THREE.MeshBasicMaterial({
+  map: BOLT_TEX, transparent: true, side: THREE.DoubleSide, depthWrite: false
+});
+
+function acquireBoost() {
+  let g = boostPool.pop();
+  if (!g) {
+    g = new THREE.Group();
+    g.add(new THREE.Mesh(BOLT_GEO, BOLT_MAT));
+  }
+  g.visible = true;
+  scene.add(g);
+  return g;
+}
+
+/** 在指定车道生成一枚闪电道具（从天上掉落，落地后悬浮旋转） */
+function spawnBoost(lane, z) {
+  const g = acquireBoost();
+  /* 闪电是「悬浮道具」，直接从可拾取高度出现（1.05 米），不再像金币那样从 16 米高
+     空落下——原来落下的 1.2 秒里道具早被滚到身后，玩家几乎永远吃不到 */
+  g.position.set(LANE_X[lane], CFG.COIN_REST_Y, z);
+  boosts.push({ group: g, x: LANE_X[lane], y: CFG.COIN_REST_Y, z0: z, z, landed: true, phase: Math.random() * 6 });
+}
+
+function releaseBoost(b) {
+  b.group.visible = false;
+  scene.remove(b.group);
+  boostPool.push(b.group);
+}
+
+/** 闪电道具：下落 + 悬浮 + 自转 */
+function updateBoosts(dt) {
+  for (let i = boosts.length - 1; i >= 0; i--) {
+    const b = boosts[i];
+    b.z = b.z0 + game.travel;
+    if (!b.landed) {
+      b.y -= CFG.COIN_FALL_SPEED * dt;
+      if (b.y <= CFG.COIN_REST_Y) { b.y = CFG.COIN_REST_Y; b.landed = true; }
+    }
+    b.phase += dt * 3;
+    /* 悬浮幅度收窄到 ±0.06：原来 ±0.12 会让道具上下漂出判定范围，偶尔「看着碰到了却没吃到」 */
+    b.group.position.set(b.x, b.y + Math.sin(b.phase) * 0.06, b.z);
+    b.group.rotation.y += dt * 3.2;
+    if (b.z > CFG.RECYCLE_Z) { boosts.splice(i, 1); releaseBoost(b); }
+  }
+}
+
+/** 吃到闪电 → 5 秒加速 */
+function checkBoostCollision() {
+  if (game.state !== STATE.PLAYING && game.state !== STATE.INTRO) return;
+  const reach = 0.75 + CFG.BALL_RADIUS * 0.9;
+  /* 竖直判定放宽：道具悬浮在 1.05 米（球心只有 0.5），原来只给 BALL_RADIUS+1.1
+     的窗口，刚好卡在边缘经常判不到 → 放宽到 1.45，球滚过就能稳稳吃到 */
+  const reachY = CFG.BALL_RADIUS + 1.45;
+  for (let i = boosts.length - 1; i >= 0; i--) {
+    const b = boosts[i];
+    if (Math.abs(b.x - game.ballX) < reach &&
+        Math.abs(b.z - 0) < reach &&
+        Math.abs(b.y - game.ballY) < reachY) {
+      game.boost = CFG.BOOST_DURATION;                    // 重置为完整加速时长
+      boosts.splice(i, 1);
+      releaseBoost(b);
+      showToast('⚡ 加速 ' + CFG.BOOST_DURATION + ' 秒！', 'good');
+      AudioSys.boost();
+    }
+  }
+}
+
+/* ⚡加速倒计时 HUD 小标签 */
+const elBoost = document.createElement('div');
+elBoost.id = 'boostTag';
+elBoost.style.display = 'none';
+document.body.appendChild(elBoost);
+
+
+/* ==================================================================
  * 【模块 8】玩家：蓝色圆球
  * ================================================================== */
 const playerGroup = new THREE.Group();
@@ -54679,6 +55222,78 @@ playerGroup.add(shieldMesh);
 
 
 /* ==================================================================
+ * 【模块 8.5】小球皮肤：马卡龙彩虹七色 + 花朵图案 🌸
+ * 鼠标右键循环切换，选择会存进 localStorage。
+ * ================================================================== */
+const SKINS = [
+  { name: '樱花红', base: '#f8a8bd', light: '#ffd9e5', glow: 0xf27fa5 },
+  { name: '蜜桃橙', base: '#ffc9a0', light: '#ffe8d2', glow: 0xf59d5e },
+  { name: '柠檬黄', base: '#ffeb96', light: '#fff7cf', glow: 0xf0c53a },
+  { name: '抹茶绿', base: '#b4ecc0', light: '#e0f9e6', glow: 0x6fd88a },
+  { name: '薄荷青', base: '#a8ece2', light: '#dcf9f4', glow: 0x5cd4c4 },
+  { name: '天空蓝', base: '#a8d4ff', light: '#dcefff', glow: 0x4f9df0 },
+  { name: '香芋紫', base: '#cfbdf5', light: '#ead9ff', glow: 0x9d7df0 }
+];
+
+/** 画一朵五瓣小花（花瓣绕中心一圈） */
+function drawFlower(ctx, cx, cy, r, petal, center) {
+  ctx.fillStyle = petal;
+  for (let p = 0; p < 5; p++) {
+    const a = (p / 5) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.ellipse(cx + Math.cos(a) * r * 0.62, cy + Math.sin(a) * r * 0.62,
+                r * 0.42, r * 0.30, a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = center;
+  ctx.beginPath(); ctx.arc(cx, cy, r * 0.26, 0, Math.PI * 2); ctx.fill();
+}
+
+/** 每种皮肤一张贴图：马卡龙底色渐变 + 白色小花与圆点 */
+const skinTextures = SKINS.map((s) => {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, S);
+  g.addColorStop(0, s.light);
+  g.addColorStop(1, s.base);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  /* 固定位置的 6 朵小花 + 4 个小白点，滚动时花纹清晰可见 */
+  for (const [x, y] of [[52, 48], [168, 36], [224, 120], [120, 120], [40, 180], [150, 208]]) {
+    drawFlower(ctx, x, y, 34, 'rgba(255,255,255,.92)', '#f7b23c');
+  }
+  ctx.fillStyle = 'rgba(255,255,255,.65)';
+  for (const [x, y] of [[96, 72], [200, 190], [24, 120], [110, 240]]) {
+    ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+});
+
+let skinIndex = 0;
+try { skinIndex = Number(localStorage.getItem('rollingsky_skin') || 0) % SKINS.length || 0; } catch (e) { skinIndex = 0; }
+
+/** 应用皮肤：换贴图 + 自发光跟随主色 */
+function applySkin(i) {
+  skinIndex = ((i % SKINS.length) + SKINS.length) % SKINS.length;
+  const s = SKINS[skinIndex];
+  ballMesh.material.map = skinTextures[skinIndex];
+  ballMesh.material.emissive.setHex(s.glow);
+  ballMesh.material.needsUpdate = true;
+  try { localStorage.setItem('rollingsky_skin', String(skinIndex)); } catch (e) {}
+}
+
+/** 右键切换到下一种皮肤 */
+function cycleSkin() {
+  applySkin(skinIndex + 1);
+  showToast('🎨 皮肤：' + SKINS[skinIndex].name, 'good');
+}
+applySkin(skinIndex);
+
+
+/* ==================================================================
  * 【模块 9】游戏状态机 / HUD / 弹窗
  *   ready   等待开始（显示开始弹窗）
  *   intro   小球从天上快速落下
@@ -54712,6 +55327,8 @@ const game = {
   protect: 0,            // 新手保护剩余时间：期间完全免疫（障碍不扣血、坑不会掉）
   landLock: 0,           // 落地锁定时间：期间不做任何吸附/传送
   lastLane: 2,           // 命中的车道（用于判定脚下有没有砖）
+  boost: 0,              // ⚡加速剩余秒数（>0 时速度乘 BOOST_FACTOR）
+  paused: false,         // 【中键暂停】true = 冻结一切逻辑只渲染画面
   timeScale: 1           // 时间倍速（仅调试/自动化测试使用，正常游玩保持 1）
 };
 
@@ -54849,9 +55466,24 @@ function clearAhead() {
     const o = obstacles[i];
     if (o.z < 2) { obstacles.splice(i, 1); releaseObstacle(o); }
   }
+  /* 1.5) 清掉前方的炸弹与闪电 */
+  for (let i = bombs.length - 1; i >= 0; i--) {
+    const b = bombs[i];
+    if (b.z < 2) { bombs.splice(i, 1); releaseBomb(b); }
+  }
+  for (let i = boosts.length - 1; i >= 0; i--) {
+    const b = boosts[i];
+    if (b.z < 2) { boosts.splice(i, 1); releaseBoost(b); }
+  }
+  /* 补上砖的地方，警示圈也要一并收掉
+     （rows 必须先于循环声明——否则这里处于暂时性死区，重开时会抛 ReferenceError） */
+  const rows = CFG.SAFE_AFTER_PROTECT + 2;                  // 安全排数（1 排 = 1.5 米）
+  for (let i = holeMarkers.length - 1; i >= 0; i--) {
+    const h = holeMarkers[i];
+    if (h.z < rows * CFG.TILE_SIZE + 2) { holeMarkers.splice(i, 1); releaseHoleMarker(h); }
+  }
   /* 2) 把前方这一段里缺的砖补上（包括坑的位置）
         注意：这里 z 是「屏幕坐标」，补砖要换算成「存档坐标」z - travel */
-  const rows = CFG.SAFE_AFTER_PROTECT + 2;                  // 安全排数（1 排 = 1.5 米）
   for (let r = 0; r < rows; r++) {
     const zScreen = -r * CFG.TILE_SIZE;
     const z = zScreen - game.travel;                        // 换算成存档坐标
@@ -54892,6 +55524,12 @@ function clearWorld() {
   obstacles.length = 0;
   for (const c of coins) releaseCoin(c);
   coins.length = 0;
+  for (const b of bombs) releaseBomb(b);
+  bombs.length = 0;
+  for (const b of boosts) releaseBoost(b);
+  boosts.length = 0;
+  for (const h of holeMarkers) releaseHoleMarker(h);
+  holeMarkers.length = 0;
 }
 
 /**
@@ -54936,6 +55574,9 @@ function restart() {
   game.protect     = 0;
   game.landLock    = 0;
   game.blink       = 0;
+  game.boost       = 0;
+  game.paused      = false;
+  if (pauseEl) { pauseEl.remove(); pauseEl = null; document.body.classList.remove('show-cursor'); }
   game.distanceAcc = 0;
   game.travel = 0;
   rowSpawned = 0;
@@ -54984,19 +55625,11 @@ function showStartCard() {
   elCard.innerHTML = `
     <h1>滚动天空</h1>
     <div class="subtitle">蓝色小球 · 3D 空中跑酷</div>
-    <div class="sectionTitle">操作方式</div>
     <div class="tips">
-      <span class="key">←</span><span class="key">→</span> &nbsp;键盘左右移动<br>
-      <span class="key">空格</span> &nbsp;跳跃（长按跳更高）<br>
-      🖱 &nbsp;移动鼠标 —— 小球平滑跟随指针平移<br>
-      🖱 &nbsp;点击画面 —— 朝点击位置快速冲刺
-    </div>
-    <div class="sectionTitle">游戏规则</div>
-    <div class="tips">
-      🪙 &nbsp;吃掉落下的金币，每枚 <b>+1 分</b><br>
-      🟥 &nbsp;撞到障碍方块会 <b>失去一条生命</b>（跳起来就能越过）<br>
-      🕳 &nbsp;踩到没有方块的缺口会 <b>掉下去</b>（同样扣一条生命）<br>
-      ⚡ &nbsp;速度越来越快，撑得越久分数越高
+      <span class="key">←</span><span class="key">→</span> / 鼠标 移动 &nbsp;·&nbsp; <span class="key">空格</span> 跳跃<br>
+      🖱 中键暂停 &nbsp;·&nbsp; 右键换肤 &nbsp;·&nbsp; 点击冲刺<br>
+      🪙 金币 +1 &nbsp;·&nbsp; ⚡ 闪电加速 5 秒<br>
+      🟥 障碍 · 💣 炸弹 · 🕳 缺口 —— 跳过去！
     </div>
     <br>
     <div class="sectionTitle">难度</div>
@@ -55077,6 +55710,9 @@ const input = {
 window.addEventListener('keydown', (e) => {
   const k = e.key;
 
+  /* 【P 键】暂停 / 继续（与鼠标中键等效） */
+  if (k === 'p' || k === 'P') { togglePause(); e.preventDefault(); return; }
+
   /* 方向键 */
   if (k === 'ArrowLeft'  || k === 'a' || k === 'A') { input.left  = true; input.mode = 'key'; e.preventDefault(); }
   if (k === 'ArrowRight' || k === 'd' || k === 'D') { input.right = true; input.mode = 'key'; e.preventDefault(); }
@@ -55116,11 +55752,16 @@ window.addEventListener('mousemove', (e) => {
 
 /* ---------- （3）鼠标点击：朝该位置冲刺；右键 = 跳跃 ---------- */
 renderer.domElement.addEventListener('pointerdown', (e) => {
+  /* 【中键】暂停 / 继续 */
+  if (e.button === 1) { e.preventDefault(); togglePause(); return; }
+  /* 【右键】切换小球皮肤（马卡龙彩虹七色） */
+  if (e.button === 2) { cycleSkin(); return; }
   if (game.state !== STATE.PLAYING && game.state !== STATE.INTRO) return;
-  if (e.button === 2) { input.jumpPressed = true; input.jump = true; return; }  // 右键跳跃
   input.clickTarget = screenXToTrackX(e.clientX);
   input.mode = 'click';
 });
+/* 中键的默认行为（自动滚动）必须屏蔽，否则一按页面就往下滚 */
+window.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); });
 renderer.domElement.addEventListener('contextmenu', (e) => e.preventDefault());
 
 /* ---------- 触摸：按下冲刺；双指 / 快速上滑跳跃 ---------- */
@@ -55147,6 +55788,41 @@ renderer.domElement.addEventListener('touchend', () => {
   input.touching = false;
   input.jump = false;
 }, { passive: true });
+
+
+/* ==================================================================
+ * 【模块 10.5】暂停（鼠标中键 / P 键）
+ * ================================================================== */
+/* 注入暂停界面与加速标签所需的样式 */
+document.head.insertAdjacentHTML('beforeend', `<style>
+.pauseOverlay{position:fixed;inset:0;background:rgba(20,30,60,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;z-index:50;pointer-events:none}
+.pauseCard{background:#fff;border-radius:20px;padding:26px 44px;text-align:center;font-weight:800;font-size:30px;color:#2b3a67;box-shadow:0 18px 50px rgba(40,60,120,.35)}
+.pauseCard span{display:block;margin-top:10px;font-size:14px;font-weight:600;color:#7d8bb5}
+#boostTag{position:fixed;top:84px;left:18px;background:linear-gradient(135deg,#ffe36e,#ffb830);color:#7a4b00;padding:6px 14px;border-radius:999px;font-weight:800;font-size:15px;box-shadow:0 4px 14px rgba(255,180,40,.45);z-index:40;pointer-events:none}
+</style>`);
+
+let pauseEl = null;
+/** 中键暂停 / 继续：暂停时冻结全部逻辑，只保留画面 */
+function togglePause() {
+  if (game.state !== STATE.PLAYING && game.state !== STATE.INTRO) return;
+  game.paused = !game.paused;
+  if (game.paused) {
+    pauseEl = document.createElement('div');
+    pauseEl.className = 'pauseOverlay';
+    pauseEl.innerHTML = '<div class="pauseCard">⏸ 已暂停<span>再点一次鼠标中键（或按 P）继续</span></div>';
+    document.body.appendChild(pauseEl);
+    document.body.classList.add('show-cursor');
+  } else if (pauseEl) {
+    pauseEl.remove(); pauseEl = null;
+    document.body.classList.remove('show-cursor');
+  }
+}
+
+/* 调试接口（也方便自动化测试） */
+window.__preview = {
+  SKINS, applySkin, cycleSkin, togglePause, updateDayNight, DAY_NIGHT, game,
+  get skin() { return skinIndex; }
+};
 
 
 /* ==================================================================
@@ -55200,7 +55876,7 @@ function spawnRow(z, safe = false) {
   const dangerMax = Math.floor(CFG.LANE_COUNT / 2);
   const skipLanes = new Set();
   /* 只有在「非安全排」才允许挖空；安全窗口里坑一律不生效 */
-  if (hole && !isSafeRow) skipLanes.add(hole.lane);
+  if (hole && !isSafeRow) { skipLanes.add(hole.lane); spawnHoleMarker(hole.lane, z, hole.rows === 1); }
 
   for (let lane = 0; lane < CFG.LANE_COUNT; lane++) {
     if (isSafeRow) { addTile(lane, z); continue; }           // 安全排：整排铺满
@@ -55245,7 +55921,12 @@ function spawnRow(z, safe = false) {
         if (free.some(l => lastFreeLanes.some(p => Math.abs(p - l) <= 1))) { picked = { chosen, free }; break; }
       }
       if (picked) {
-        for (const lane of picked.chosen) { spawnObstacle(lane, z); occupied.push(lane); }
+        for (const lane of picked.chosen) {
+          /* 一定比例的障碍会变成炸弹（更醒目、爆炸惩罚更狠），占位规则完全相同 */
+          if (rowIndex > CFG.BOMB_MIN_ROW && Math.random() < CFG.BOMB_RATE) spawnBomb(lane, z);
+          else spawnObstacle(lane, z);
+          occupied.push(lane);
+        }
         lastFreeLanes = picked.free;
         obstacleGap = CFG.OBSTACLE_GAP;
       }
@@ -55263,6 +55944,13 @@ function spawnRow(z, safe = false) {
       const chain = Math.random() < CFG.COIN_CHAIN_RATE ? 3 : 1;  // 有概率连出一串金币
       for (let k = 0; k < chain; k++) spawnCoin(lane, z - k * CFG.TILE_SIZE);
     }
+  }
+
+  /* ---------- ⑤ ⚡闪电加速道具（吃到后 5 秒狂飙） ---------- */
+  if (!isSafeRow && occupied.length < dangerMax && rowIndex > CFG.BOOST_MIN_ROW &&
+      Math.random() < CFG.BOOST_CHANCE) {
+    const free = ALL_LANES.filter(l => !occupied.includes(l));
+    if (free.length) spawnBoost(free[(Math.random() * free.length) | 0], z);
   }
 }
 
@@ -55517,6 +56205,12 @@ function animate() {
   const dt = rawDt * (game.timeScale || 1);
   realTime += rawDt;
 
+  /* ⚡加速循环音效：加速中且正在游玩时开启；暂停 / 结束自动淡出 */
+  AudioSys.setBoost(game.boost > 0 && !game.paused && game.state === STATE.PLAYING);
+
+  /* 【暂停】中键暂停时：冻结一切逻辑，只保留画面 */
+  if (game.paused) { renderer.render(scene, camera); return; }
+
   /* ===== 开始前的 3-2-1 倒数 ===== */
   if (game.state === STATE.COUNTDOWN) {
     game.countdown -= rawDt;                              // 倒计时按真实时间，不受倍速影响
@@ -55538,8 +56232,22 @@ function animate() {
     const base = Math.min(CFG.MAX_SPEED, CFG.BASE_SPEED + game.elapsed * CFG.SPEED_GROWTH);
     /* 再乘难度倍率，但整体封顶在 MAX_SPEED_ABS：
        挑战档 1.3 倍后期不会被推到失控（每帧要判断的砖太多，手感也会发飘） */
-    game.speed = Math.min(CFG.MAX_SPEED_ABS, base * game.speedMul);
+    /* ⚡加速期：额外乘加速倍率，并临时抬高硬上限，让「狂飙」有感觉 */
+    const boostMul = game.boost > 0 ? CFG.BOOST_FACTOR : 1;
+    const capNow = game.boost > 0 ? CFG.MAX_SPEED_ABS * 1.3 : CFG.MAX_SPEED_ABS;
+    game.speed = Math.min(capNow, base * game.speedMul * boostMul);
     updateSpeedBar();
+  }
+
+  /* ⚡加速倒计时与 HUD 标签 */
+  if (game.boost > 0) {
+    game.boost -= dt;
+    elBoost.style.display = 'block';
+    elBoost.textContent = '⚡ ' + Math.max(0, game.boost).toFixed(1) + 's';
+    ballMesh.material.emissiveIntensity = 0.34 + Math.sin(realTime * 12) * 0.16;   // 小球发亮脉冲
+  } else {
+    elBoost.style.display = 'none';
+    ballMesh.material.emissiveIntensity = 0.28;
   }
 
   const speed = running ? game.speed : 0;
@@ -55553,8 +56261,12 @@ function animate() {
        不会因为逐帧累加 dz 而把 1.5 米的排距漂成 0.74/0.76 交替的「隐形裂缝」。 */
     game.travel += dz;
     updateTiles(dt);
+    updateHoleMarkers();
+    updateLamps();
     updateObstacles();
+    updateBombs();
     updateCoins(dt);
+    updateBoosts(dt);
     groundTex.offset.y += dz * GRID_SCROLL_PER_UNIT;
 
     /* ===== 按需在前方生成新的一排 =====
@@ -55579,7 +56291,9 @@ function animate() {
 
     /* ===== 碰撞检测 ===== */
     checkObstacleCollision();
+    checkBombCollision();
     checkCoinCollision();
+    checkBoostCollision();
   }
 
   /* ===== 玩家更新（结算时冻结） ===== */
@@ -55599,6 +56313,8 @@ function animate() {
     camera.position.y += (Math.random() - 0.5) * cameraShake * 0.6;
   }
 
+  /* ===== 昼夜循环：白天 ⇄ 夜晚缓慢过渡 ===== */
+  updateDayNight(rawDt);
   renderer.render(scene, camera);
 }
 
@@ -55616,6 +56332,7 @@ const AudioSys = (function () {
   let musicTimer = null;              // 循环调度器
   let step = 0;                       // 当前旋律步进
   let bgmOn = CFG.MUSIC_ON;
+  let boostNodes = null;              // ⚡加速循环音效的节点集合（null = 未播放）
 
   /* 旋律：C 大调五声音阶，明快、不刺耳 */
   const MELODY = [
@@ -55733,6 +56450,56 @@ const AudioSys = (function () {
       if (!ensure() || !CFG.SFX_ON) return;
       tone({ freq: 300, dur: 0.24, type: 'square', gain: 0.10, slideTo: 90 });
     },
+    /* ⚡拾取闪电：五连音「充电升级」琶音，明显又悦耳 */
+    boost() {
+      if (!ensure() || !CFG.SFX_ON) return;
+      /* 用 triangle 代替 square（方波泛音多、发尖），音量也压下来 */
+      [392, 523, 659, 784, 1046].forEach((f, i) =>
+        tone({ freq: f, dur: i === 4 ? 0.26 : 0.08, type: 'triangle', gain: CFG.BOOST_PICK_VOL, delay: i * 0.075 }));
+    },
+
+    /* ---------- ⚡加速循环音效：很轻的风声 ----------
+     * 白噪声 + 带通滤波 + LFO 扫频，加速期间循环，结束后淡出。
+     * 音色做「柔」的几处关键：
+     *   ① 两级滤波：带通先切掉低频轰鸣，再叠一个 2.5kHz 低通削掉嘶嘶的高频毛刺
+     *   ② LFO 频率放慢、幅度减小，气流是缓缓起伏而不是嗡嗡抖动
+     *   ③ 总音量只占 BGM 的一小截，贴着背景听得到、但绝不抢戏
+     * 由 animate() 每帧调用 setBoost(是否加速中) 来开关。 */
+    setBoost(on) {
+      if (!ctx) { if (!on) return; if (!ensure()) return; }
+      if (on && !boostNodes) {
+        /* 2 秒白噪声循环 */
+        const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const noise = ctx.createBufferSource();
+        noise.buffer = buf; noise.loop = true;
+        /* ① 带通（气流主体）+ 低通（磨掉高频尖刺） */
+        const bp = ctx.createBiquadFilter();
+        bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = 1.4;
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 2500; lp.Q.value = 0.5;
+        /* ② 慢速小幅 LFO → 缓缓起伏的气流 */
+        const lfo = ctx.createOscillator(); lfo.frequency.value = 1.6;
+        const lfoGain = ctx.createGain(); lfoGain.gain.value = 150;
+        lfo.connect(lfoGain); lfoGain.connect(bp.frequency);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        /* ③ 目标音量走 CFG，约是 BGM 的一小截 */
+        g.gain.exponentialRampToValueAtTime(CFG.SFX_ON ? CFG.BOOST_WIND_VOL : 0.0001, ctx.currentTime + CFG.BOOST_WIND_RAMP);
+        noise.connect(bp); bp.connect(lp); lp.connect(g); g.connect(sfxGain);
+        noise.start(); lfo.start();
+        boostNodes = { noise, lfo, g };
+      } else if (!on && boostNodes) {
+        const n = boostNodes;
+        boostNodes = null;
+        n.g.gain.cancelScheduledValues(ctx.currentTime);
+        n.g.gain.setValueAtTime(Math.max(n.g.gain.value, 0.0001), ctx.currentTime);
+        n.g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+        setTimeout(() => { try { n.noise.stop(); n.lfo.stop(); } catch (e) {} }, 400);
+      }
+    },
+    get boosting() { return !!boostNodes; },
     over() {
       if (!ensure() || !CFG.SFX_ON) return;
       [523, 440, 349, 262].forEach((f, i) =>
