@@ -55628,7 +55628,7 @@ function showStartCard() {
     <div class="tips">
       <span class="key">←</span><span class="key">→</span> / 鼠标 移动 &nbsp;·&nbsp; <span class="key">空格</span> 跳跃<br>
       🖱 中键暂停 &nbsp;·&nbsp; 右键换肤 &nbsp;·&nbsp; 点击冲刺<br>
-      🪙 金币 +1 &nbsp;·&nbsp; ⚡ 闪电加速 5 秒<br>
+      🪙 金币 +1 &nbsp;·&nbsp; ⚡ 闪电加速 <b id="tipBoostSec">5</b> 秒<br>
       🟥 障碍 · 💣 炸弹 · 🕳 缺口 —— 跳过去！
     </div>
     <br>
@@ -55652,6 +55652,7 @@ function showStartCard() {
   row.querySelectorAll('.diffBtn').forEach(b => {
     b.classList.toggle('active', Math.abs(Number(b.dataset.mul) - game.speedMul) < 1e-6);
   });
+  elCard.querySelector('#tipBoostSec').textContent = CFG.BOOST_DURATION;   // 卡片文案与实际加速秒数保持一致
   elCard.querySelector('#startBtn').addEventListener('click', restart);
   elOverlay.classList.remove('hidden');
   document.body.classList.add('show-cursor');
